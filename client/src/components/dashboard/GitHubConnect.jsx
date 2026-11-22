@@ -12,13 +12,14 @@ export default function GitHubConnect({
   status,
   phase = 'idle',
   error = '',
+  checking = false,
   onConnect,
   onDisconnect,
   onSync,
 }) {
   const connected = status?.connected && phase !== 'connecting'
-  const busy = phase === 'connecting' || phase === 'reconnecting'
-  const failed = phase === 'failed' || status?.status === 'FAILED' || status?.status === 'EXPIRED'
+  const busy = phase === 'connecting' || phase === 'reconnecting' || checking
+  const failed = !checking && (phase === 'failed' || status?.status === 'FAILED' || status?.status === 'EXPIRED')
 
   return (
     <motion.div
@@ -35,7 +36,9 @@ export default function GitHubConnect({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-base font-bold text-slate-950">GitHub connection</h2>
-              {connected ? (
+              {checking ? (
+                <Badge tone="cyan" dot>Verifying connection…</Badge>
+              ) : connected ? (
                 <Badge tone="success" dot>Connected</Badge>
               ) : failed ? (
                 <Badge tone="danger" dot>Connection failed</Badge>
@@ -44,7 +47,12 @@ export default function GitHubConnect({
               )}
             </div>
 
-            {connected ? (
+            {checking ? (
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-500 flex items-center gap-2">
+                <LuRefreshCw className="h-3.5 w-3.5 animate-spin text-sky-600" />
+                Establishing GitHub connection and checking accessible repositories…
+              </p>
+            ) : connected ? (
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 {status.profile?.avatarUrl ? (
                   <img
@@ -67,7 +75,7 @@ export default function GitHubConnect({
               </p>
             )}
 
-            {(busy || failed || error) && (
+            {!checking && (busy || failed || error) && (
               <p className={`mt-3 flex items-center gap-2 text-xs ${failed || error ? 'text-danger' : 'text-accent'}`}>
                 {failed || error ? <LuTriangleAlert className="h-3.5 w-3.5" /> : <LuRefreshCw className="h-3.5 w-3.5 animate-spin" />}
                 {error || phaseCopy[phase] || 'Connection failed. Please try again.'}
@@ -84,7 +92,11 @@ export default function GitHubConnect({
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2.5">
-          {connected ? (
+          {checking ? (
+            <Button size="sm" leftIcon={LuRefreshCw} loading disabled>
+              Establishing connection…
+            </Button>
+          ) : connected ? (
             <>
               <Button variant="secondary" size="sm" leftIcon={LuRefreshCw} onClick={onSync}>
                 Sync repositories

@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken'
 import User from '../models/User.js'
+import GitHubConnection from '../models/GitHubConnection.js'
 import { AppError, asyncHandler } from '../utils/errors.js'
 import {
   validateLogin,
@@ -16,6 +17,25 @@ const clearAuthCookie = (res) =>
     path: '/',
   })
 
+async function userWithGithub(user) {
+  const json = user.toJSON()
+  try {
+    const connection = await GitHubConnection.findOne({ userId: user._id }).select(
+      'githubUsername avatarUrl connectedAt status',
+    )
+    json.github = {
+      connected: Boolean(connection && connection.status === 'CONNECTED'),
+      status: connection?.status || 'NOT_CONNECTED',
+      username: connection?.githubUsername || '',
+      avatarUrl: connection?.avatarUrl || '',
+      connectedAt: connection?.connectedAt || null,
+    }
+  } catch {
+    json.github = { connected: false, status: 'NOT_CONNECTED' }
+  }
+  return json
+}
+
 export const signup = asyncHandler(async (req, res) => {
   const { name, email, password } = validateSignup(req.body)
 
@@ -28,7 +48,7 @@ export const signup = asyncHandler(async (req, res) => {
   res.status(201).json({
     success: true,
     message: 'Account created successfully.',
-    user: user.toJSON(),
+    user: await userWithGithub(user),
   })
 })
 
@@ -46,7 +66,7 @@ export const login = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     message: 'Signed in successfully.',
-    user: user.toJSON(),
+    user: await userWithGithub(user),
   })
 })
 
@@ -57,7 +77,7 @@ export const logout = asyncHandler(async (req, res) => {
 })
 
 export const me = asyncHandler(async (req, res) => {
-  res.status(200).json({ success: true, user: req.user.toJSON() })
+  res.status(200).json({ success: true, user: await userWithGithub(req.user) })
 })
 
 // Public bootstrap endpoint: returns 200 even when signed out so the client
@@ -70,7 +90,7 @@ export const session = asyncHandler(async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
     const user = await User.findById(decoded.id)
     if (!user) return res.json({ success: true, authenticated: false, user: null })
-    return res.json({ success: true, authenticated: true, user: user.toJSON() })
+    return res.json({ success: true, authenticated: true, user: await userWithGithub(user) })
   } catch {
     return res.json({ success: true, authenticated: false, user: null })
   }
@@ -84,6 +104,6 @@ export const updateProfile = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     message: 'Profile updated.',
-    user: req.user.toJSON(),
+    user: await userWithGithub(req.user),
   })
 })

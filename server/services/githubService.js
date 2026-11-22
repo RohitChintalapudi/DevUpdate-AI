@@ -137,13 +137,40 @@ function octokitFor(accessToken) {
 
 export async function getAuthenticatedUser(accessToken) {
   const octokit = octokitFor(accessToken)
-  const rest = octokit.rest || octokit
+  const restUsers = octokit.rest?.users || octokit.users
   try {
-    const { data } = await withTimeout(
-      rest.users.getAuthenticated(),
-      GITHUB_REQUEST_TIMEOUT_MS,
-      'Timed out reading the GitHub profile',
-    )
+    let data
+    if (restUsers?.getAuthenticated) {
+      const response = await withTimeout(
+        restUsers.getAuthenticated(),
+        GITHUB_REQUEST_TIMEOUT_MS,
+        'Timed out reading the GitHub profile',
+      )
+      data = response.data
+    } else if (typeof octokit.request === 'function') {
+      const response = await withTimeout(
+        octokit.request('GET /user'),
+        GITHUB_REQUEST_TIMEOUT_MS,
+        'Timed out reading the GitHub profile',
+      )
+      data = response.data
+    } else {
+      const res = await withTimeout(
+        fetch('https://api.github.com/user', {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: 'application/vnd.github+json',
+            'User-Agent': 'DevUpdate-AI-App',
+          },
+        }),
+        GITHUB_REQUEST_TIMEOUT_MS,
+        'Timed out reading the GitHub profile',
+      )
+      if (!res.ok) {
+        throw new AppError(`GitHub user profile request failed with status ${res.status}`, res.status)
+      }
+      data = await res.json()
+    }
     return {
       githubUserId: data.id,
       githubUsername: sanitizeText(data.login || 'github-user', 100),
@@ -173,10 +200,13 @@ function normalizeRepository(repo) {
 
 export async function listAccessibleRepositories(accessToken) {
   const octokit = octokitFor(accessToken)
-  const rest = octokit.rest || octokit
+  const listFn =
+    octokit.rest?.repos?.listForAuthenticatedUser ||
+    octokit.repos?.listForAuthenticatedUser ||
+    'GET /user/repos'
   try {
     const repositories = await withTimeout(
-      octokit.paginate(rest.repos.listForAuthenticatedUser, {
+      octokit.paginate(listFn, {
         visibility: 'all',
         affiliation: 'owner,collaborator,organization_member',
         sort: 'updated',
@@ -195,10 +225,12 @@ export async function listAccessibleRepositories(accessToken) {
 
 export async function getRepositoryMetadata(accessToken, owner, repo) {
   const octokit = octokitFor(accessToken)
-  const rest = octokit.rest || octokit
+  const getFn = octokit.rest?.repos?.get || octokit.repos?.get
   try {
     const { data } = await withTimeout(
-      rest.repos.get({ owner, repo }),
+      getFn
+        ? getFn({ owner, repo })
+        : octokit.request('GET /repos/{owner}/{repo}', { owner, repo }),
       GITHUB_REQUEST_TIMEOUT_MS,
       'Timed out reading repository metadata',
     )
@@ -273,10 +305,16 @@ async function fetchTreeWithoutTruncation(octokit, owner, repo, ref) {
 
 export async function getRepositoryTree(accessToken, owner, repo, ref) {
   const octokit = octokitFor(accessToken)
-  const rest = octokit.rest || octokit
+  const gitApi = octokit.rest?.git || octokit.git
   try {
     const { data } = await withTimeout(
-      rest.git.getTree({ owner, repo, tree_sha: ref, recursive: '1' }),
+      gitApi?.getTree
+        ? gitApi.getTree({ owner, repo, tree_sha: ref, recursive: '1' })
+        : octokit.request('GET /repos/{owner}/{repo}/git/trees/{tree_sha}?recursive=1', {
+            owner,
+            repo,
+            tree_sha: ref,
+          }),
       GITHUB_REQUEST_TIMEOUT_MS * 2,
       'Timed out reading repository tree',
     )
@@ -297,16 +335,24 @@ export async function getRepositoryTree(accessToken, owner, repo, ref) {
 
 export async function getFileContent(accessToken, owner, repo, path, ref) {
   const octokit = octokitFor(accessToken)
-  const rest = octokit.rest || octokit
+  const reposApi = octokit.rest?.repos || octokit.repos
   try {
     const { data } = await withTimeout(
-      rest.repos.getContent({
-        owner,
-        repo,
-        path,
-        ref,
-        mediaType: { format: 'raw' },
-      }),
+      reposApi?.getContent
+        ? reposApi.getContent({
+            owner,
+            repo,
+            path,
+            ref,
+            mediaType: { format: 'raw' },
+          })
+        : octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+            owner,
+            repo,
+            path,
+            ref,
+            headers: { Accept: 'application/vnd.github.raw' },
+          }),
       GITHUB_REQUEST_TIMEOUT_MS,
       'Timed out reading manifest file',
     )

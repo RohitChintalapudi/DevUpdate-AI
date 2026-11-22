@@ -199,14 +199,25 @@ export const status = asyncHandler(async (req, res) => {
   const userId = req.user._id
   const configured = isGithubConfigured()
   const connection = await GitHubConnection.findOne({ userId }).select(
-    'githubUsername avatarUrl connectedAt status',
+    'githubUsername avatarUrl connectedAt status accessToken',
   )
-  const repositoryCount = await Repository.countDocuments({ userId })
+  let repositoryCount = await Repository.countDocuments({ userId })
+  const isConnected = Boolean(connection && connection.status === 'CONNECTED')
+
+  // Automatically ensure repositories are synced if connected and count is 0
+  if (isConnected && repositoryCount === 0) {
+    try {
+      const syncResult = await syncRepositories(userId.toString())
+      repositoryCount = syncResult.total || syncResult.synced || repositoryCount
+    } catch (err) {
+      console.warn('[github] Automatic sync during status check:', sanitizeError(err))
+    }
+  }
 
   res.json({
     success: true,
     configured,
-    connected: Boolean(connection && connection.status === 'CONNECTED'),
+    connected: isConnected,
     status: connection?.status || 'NOT_CONNECTED',
     profile: connection
       ? {

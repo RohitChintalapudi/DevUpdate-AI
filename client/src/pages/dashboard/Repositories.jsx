@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { LuGitBranch, LuGithub, LuRefreshCw, LuSearch, LuSlidersHorizontal } from 'react-icons/lu'
+import { motion } from 'framer-motion'
 import Button from '../../components/common/Button'
 import EmptyState from '../../components/common/EmptyState'
 import Input from '../../components/common/Input'
@@ -11,6 +12,7 @@ import SectionTabs from '../../components/common/SectionTabs'
 import GitHubConnect from '../../components/dashboard/GitHubConnect'
 import RepositoryCard from '../../components/dashboard/RepositoryCard'
 import useDebounce from '../../hooks/useDebounce'
+import { useAuth } from '../../context/AuthContext'
 import { getErrorMessage, githubApi, repositoriesApi } from '../../services/api'
 
 function selectClass() {
@@ -22,7 +24,22 @@ export default function Repositories() {
   const location = useLocation()
   const callbackHandled = useRef(false)
 
-  const [connection, setConnection] = useState(null)
+  const { user } = useAuth()
+  const [connection, setConnection] = useState(() => {
+    if (user?.github?.connected) {
+      return {
+        connected: true,
+        status: user.github.status || 'CONNECTED',
+        profile: {
+          username: user.github.username,
+          avatarUrl: user.github.avatarUrl,
+        },
+        repositoryCount: 0,
+      }
+    }
+    return null
+  })
+  const [checkingConnection, setCheckingConnection] = useState(true)
   const [phase, setPhase] = useState('idle')
   const [connectionError, setConnectionError] = useState('')
   const [repositories, setRepositories] = useState([])
@@ -82,23 +99,52 @@ export default function Repositories() {
     }
   }, [debouncedSearch, language, visibility, status, sort, page, notify])
 
+  // Initial connection verification and automated repository dependency sync
   useEffect(() => {
     let active = true
-    const load = async () => {
-      await Promise.resolve()
-      if (active) await loadConnection()
+    const init = async () => {
+      setCheckingConnection(true)
+      const startTime = Date.now()
+
+      try {
+        const data = await loadConnection()
+        if (!active) return
+
+        if (data?.connected) {
+          if (!data.repositoryCount || data.repositoryCount === 0) {
+            await repositoriesApi.sync().catch(() => null)
+          }
+          await loadRepositories()
+        } else {
+          setRepositories([])
+          setLoading(false)
+        }
+      } catch (err) {
+        console.error('Failed to initialize GitHub state:', err)
+      } finally {
+        // Enforce smooth 3.2s minimum duration so user sees the connection establish smoothly
+        const elapsed = Date.now() - startTime
+        const minDuration = 3200
+        if (elapsed < minDuration) {
+          await new Promise((resolve) => setTimeout(resolve, minDuration - elapsed))
+        }
+        if (active) {
+          setCheckingConnection(false)
+        }
+      }
     }
-    load()
+    init()
     return () => {
       active = false
     }
-  }, [loadConnection])
+  }, [loadConnection, loadRepositories])
 
+  // Filter and pagination change listener
   useEffect(() => {
     let active = true
-    const load = async () => {
+    const run = async () => {
       await Promise.resolve()
-      if (!active) return
+      if (!active || checkingConnection) return
       if (!connection?.connected) {
         setLoading(false)
         setRepositories([])
@@ -106,11 +152,11 @@ export default function Repositories() {
       }
       await loadRepositories()
     }
-    load()
+    run()
     return () => {
       active = false
     }
-  }, [connection?.connected, loadRepositories])
+  }, [debouncedSearch, language, visibility, status, sort, page, connection?.connected, checkingConnection, loadRepositories])
 
   const syncRepositories = useCallback(async () => {
     setSyncing(true)
@@ -230,6 +276,7 @@ export default function Repositories() {
 
       <GitHubConnect
         status={connection}
+        checking={checkingConnection}
         phase={phase}
         error={connectionError}
         onConnect={handleConnect}
@@ -334,7 +381,43 @@ export default function Repositories() {
       </div>
 
       <div className="mt-5">
-        {loading ? (
+        {checkingConnection ? (
+          <div className="relative overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-8 sm:p-12 text-center shadow-xs">
+            {/* Ambient subtle sky blue aura */}
+            <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 h-64 w-96 rounded-full bg-sky-200/35 blur-3xl" />
+            <div className="relative mx-auto flex max-w-md flex-col items-center">
+              <div className="relative mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-md">
+                <LuGithub className="h-8 w-8" />
+                <span className="absolute -inset-1 rounded-2xl border-2 border-sky-400/40 animate-ping opacity-60" />
+                <span className="absolute -inset-2.5 rounded-3xl border border-sky-300/30 animate-pulse" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-950">
+                Establishing GitHub Connection
+              </h3>
+              <p className="mt-1.5 text-xs leading-relaxed text-slate-500">
+                Verifying your connected GitHub account, accessible repositories, and project dependency trees…
+              </p>
+              {/* Animated Progress Bar */}
+              <div className="mt-5 h-1.5 w-64 overflow-hidden rounded-full bg-slate-100">
+                <motion.div
+                  className="h-full bg-gradient-to-r from-sky-500 via-indigo-500 to-sky-400"
+                  initial={{ x: '-100%' }}
+                  animate={{ x: '100%' }}
+                  transition={{ repeat: Infinity, duration: 1.4, ease: 'easeInOut' }}
+                />
+              </div>
+              <p className="mt-3 text-[11px] font-medium text-slate-400">
+                Securing repository integration…
+              </p>
+            </div>
+            {/* Skeletons preview underneath */}
+            <div className="mt-8 grid gap-4 opacity-50 md:grid-cols-2 xl:grid-cols-3">
+              <RepositoryCardSkeleton />
+              <RepositoryCardSkeleton />
+              <RepositoryCardSkeleton />
+            </div>
+          </div>
+        ) : loading ? (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 6 }, (_, index) => <RepositoryCardSkeleton key={index} />)}
           </div>

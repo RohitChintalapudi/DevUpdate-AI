@@ -9,7 +9,7 @@ import {
   GithubOriginal,
   DockerOriginal,
 } from 'devicons-react'
-import Logo from '../components/common/Logo'
+import Navbar from '../components/landing/Navbar'
 
 // Official developer stack badges placed on outer orbits flanking the centered card
 const authOrbitBadges = [
@@ -87,24 +87,26 @@ const authOrbitBadges = [
 export default function AuthLayout({ title, description, children, footer, badge }) {
   const [activeTooltip, setActiveTooltip] = useState(null)
 
-  // Enforce zero scroll and clean surface background to fit viewport exactly
+  // Clean surface background to match landing aesthetics
   useEffect(() => {
     const prevBg = document.body.style.backgroundColor
     const prevColor = document.body.style.color
-    const prevOverflow = document.body.style.overflow
     document.body.style.backgroundColor = '#F8FAFC'
     document.body.style.color = '#0F172A'
-    document.body.style.overflow = 'hidden'
 
     return () => {
       document.body.style.backgroundColor = prevBg
       document.body.style.color = prevColor
-      document.body.style.overflow = prevOverflow
     }
   }, [])
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-[#F8FAFC] text-slate-900 font-sans antialiased selection:bg-slate-900 selection:text-white flex flex-col justify-center items-center px-4 py-3 sm:py-5">
+    <div className="relative min-h-screen w-full bg-[#F8FAFC] text-slate-900 font-sans antialiased selection:bg-slate-900 selection:text-white flex flex-col justify-center items-center px-4 pt-24 pb-8 sm:pt-28">
+      {/* =========================================================
+       * 1. Top Navbar (Identical to landing page; logo redirects to '/')
+       * ========================================================= */}
+      <Navbar />
+
       {/* =========================================================
        * Concentric Orbital Background & Ethereal Glow
        * ========================================================= */}
@@ -201,15 +203,6 @@ export default function AuthLayout({ title, description, children, footer, badge
             </div>
           </motion.div>
         ))}
-      </div>
-
-      {/* =========================================================
-       * Top Header Logo
-       * ========================================================= */}
-      <div className="relative z-20 mb-2.5 sm:mb-3 text-center shrink-0">
-        <div className="inline-block transition-transform hover:scale-105">
-          <Logo theme="light" />
-        </div>
       </div>
 
       {/* =========================================================

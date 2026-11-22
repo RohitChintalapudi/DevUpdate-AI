@@ -1,21 +1,24 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { LuMenu, LuX } from 'react-icons/lu'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import Logo from '../common/Logo'
 
 const links = [
-  { label: 'Home', href: '#' },
-  { label: 'Features', href: '#features' },
-  { label: 'How It Works', href: '#how-it-works' },
-  { label: 'Technology', href: '#technology' },
-  { label: 'About', href: '#about' },
-  { label: 'FAQ', href: '#faq' },
+  { label: 'Home', href: '/#' },
+  { label: 'Features', href: '/#features' },
+  { label: 'How It Works', href: '/#how-it-works' },
+  { label: 'Technology', href: '/#technology' },
+  { label: 'About', href: '/#about' },
+  { label: 'FAQ', href: '/#faq' },
 ]
 
 export default function Navbar() {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const location = useLocation()
+  const isLoginPage = location.pathname === '/login'
+  const isSignupPage = location.pathname === '/signup'
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12)
@@ -29,12 +32,12 @@ export default function Navbar() {
       className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
         scrolled
           ? 'bg-white/95 backdrop-blur-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border-b border-slate-200/80'
-          : 'bg-white/90 backdrop-blur-lg'
+          : 'bg-white/90 backdrop-blur-lg border-b border-slate-100/80'
       }`}
     >
       <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-8">
-        {/* Left: Brand Logo */}
-        <Logo theme="light" />
+        {/* Left: Brand Logo - Always links to landing page */}
+        <Logo theme="light" to="/" />
 
         {/* Center: Main Navigation */}
         <nav className="hidden items-center gap-7 lg:flex">
@@ -51,18 +54,29 @@ export default function Navbar() {
 
         {/* Right: Actions */}
         <div className="hidden items-center gap-3 lg:flex">
-          <Link
-            to="/login"
-            className="inline-flex h-9 items-center rounded-full px-4 text-[13.5px] font-medium text-slate-600 transition hover:text-slate-950"
-          >
-            Sign In
-          </Link>
-          <Link
-            to="/signup"
-            className="inline-flex h-9.5 items-center justify-center rounded-full bg-slate-950 px-5 text-[13.5px] font-semibold text-white shadow-xs transition-all hover:bg-slate-800 hover:shadow-md active:scale-[0.98]"
-          >
-            Get Started
-          </Link>
+          {!isLoginPage && (
+            <Link
+              to="/login"
+              className="inline-flex h-9 items-center rounded-full px-4 text-[13.5px] font-medium text-slate-600 transition hover:text-slate-950"
+            >
+              Sign In
+            </Link>
+          )}
+          {!isSignupPage ? (
+            <Link
+              to="/signup"
+              className="inline-flex h-9.5 items-center justify-center rounded-full bg-slate-950 px-5 text-[13.5px] font-semibold text-white shadow-xs transition-all hover:bg-slate-800 hover:shadow-md active:scale-[0.98]"
+            >
+              Get Started
+            </Link>
+          ) : (
+            <Link
+              to="/login"
+              className="inline-flex h-9.5 items-center justify-center rounded-full bg-slate-950 px-5 text-[13.5px] font-semibold text-white shadow-xs transition-all hover:bg-slate-800 hover:shadow-md active:scale-[0.98]"
+            >
+              Sign In
+            </Link>
+          )}
         </div>
 
         {/* Mobile Hamburger Toggle */}
@@ -101,12 +115,14 @@ export default function Navbar() {
               <div className="mt-3 grid grid-cols-2 gap-2.5 border-t border-slate-100 pt-4">
                 <Link
                   to="/login"
+                  onClick={() => setOpen(false)}
                   className="inline-flex h-11 items-center justify-center rounded-full border border-slate-200 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                 >
                   Sign In
                 </Link>
                 <Link
                   to="/signup"
+                  onClick={() => setOpen(false)}
                   className="inline-flex h-11 items-center justify-center rounded-full bg-slate-950 text-sm font-semibold text-white shadow-xs transition hover:bg-slate-800"
                 >
                   Get Started
