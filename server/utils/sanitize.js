@@ -27,6 +27,11 @@ export function requireObjectId(value, label = 'id') {
   return value
 }
 
+export function optionalObjectId(value, label = 'id') {
+  if (value === undefined || value === null || value === '') return undefined
+  return requireObjectId(value, label)
+}
+
 export function sanitizeError(error) {
   const message = sanitizeText(error?.message || 'Unknown error', 300)
   return message.replace(/ghp_[A-Za-z0-9]+|ghs_[A-Za-z0-9]+/g, '[redacted]')

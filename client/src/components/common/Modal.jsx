@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { X } from 'lucide-react'
-
+import { LuX } from 'react-icons/lu'
 export default function Modal({
   open,
   onClose,
@@ -60,7 +59,7 @@ export default function Modal({
                 aria-label="Close dialog"
                 className="rounded-lg p-1.5 text-muted transition hover:bg-white/5 hover:text-ink"
               >
-                <X className="h-5 w-5" />
+                <LuX className="h-5 w-5" />
               </button>
             </div>
             {children ? <div className="relative mt-5">{children}</div> : null}

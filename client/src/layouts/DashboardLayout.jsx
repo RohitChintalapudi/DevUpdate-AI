@@ -1,13 +1,22 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from '../components/dashboard/Sidebar'
 import Topbar from '../components/dashboard/Topbar'
 
 export default function DashboardLayout() {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sidebar_collapsed') === 'true'
+    }
+    return false
+  })
   const [mobileOpen, setMobileOpen] = useState(false)
   const location = useLocation()
+
+  useEffect(() => {
+    localStorage.setItem('sidebar_collapsed', String(collapsed))
+  }, [collapsed])
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -20,7 +29,7 @@ export default function DashboardLayout() {
       />
       <div
         className="relative min-h-screen transition-[margin] duration-300 ease-out lg:ml-[var(--sidebar-width)]"
-        style={{ '--sidebar-width': collapsed ? '76px' : '250px' }}
+        style={{ '--sidebar-width': collapsed ? '72px' : '240px' }}
       >
         <Topbar onOpenMobileNav={() => setMobileOpen(true)} />
         <AnimatePresence mode="wait">

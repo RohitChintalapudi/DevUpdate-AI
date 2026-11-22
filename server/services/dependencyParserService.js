@@ -40,6 +40,8 @@ function makeEntry({
   resolvedVersion = '',
   dependencyType = 'runtime',
   isDevelopmentDependency = false,
+  groupId = '',
+  artifactId = '',
 }) {
   const name = clean(packageName)
   if (!name) return null
@@ -51,6 +53,8 @@ function makeEntry({
     resolvedVersion: clean(resolvedVersion, MAX_VERSION),
     dependencyType,
     isDevelopmentDependency: Boolean(isDevelopmentDependency),
+    groupId: clean(groupId, 150),
+    artifactId: clean(artifactId, 150),
   }
 }
 
@@ -317,9 +321,12 @@ function parsePoetryLock(content, source) {
 function parsePom(content, source) {
   const entries = []
   const withoutComments = content.replace(/<!--[\s\S]*?-->/g, '')
+  const parentXml = withoutComments.match(/<parent\b[^>]*>([\s\S]*?)<\/parent>/i)?.[1] || ''
+  const parentGroup = parentXml.match(/<groupId\b[^>]*>([^<]+)<\/groupId>/i)?.[1] || ''
   for (const block of withoutComments.matchAll(/<dependency\b[^>]*>([\s\S]*?)<\/dependency>/gi)) {
     const xml = block[1]
     const artifact = xml.match(/<artifactId\b[^>]*>([^<]+)<\/artifactId>/i)?.[1]
+    const group = xml.match(/<groupId\b[^>]*>([^<]+)<\/groupId>/i)?.[1] || parentGroup
     const version = xml.match(/<version\b[^>]*>([^<]+)<\/version>/i)?.[1] || ''
     const scope = xml.match(/<scope\b[^>]*>([^<]+)<\/scope>/i)?.[1] || ''
     const dev = /test|provided/i.test(scope)
@@ -330,6 +337,8 @@ function parsePom(content, source) {
       declaredVersion: version.startsWith('${') ? '' : version,
       dependencyType: dev ? 'development' : 'runtime',
       isDevelopmentDependency: dev,
+      groupId: group,
+      artifactId: artifact,
     })
     if (entry) entries.push(entry)
   }
@@ -353,6 +362,8 @@ function parseGradle(content, source) {
       declaredVersion: version.startsWith('$') ? '' : version,
       dependencyType: type,
       isDevelopmentDependency: dev,
+      groupId: group,
+      artifactId: name,
     })
     if (entry) entries.push(entry)
   }
@@ -629,6 +640,8 @@ export function parseDependencyFiles(files) {
       resolvedVersion: resolution?.resolvedVersion || '',
       dependencyType: base.dependencyType || 'runtime',
       sourceManifest: base.sourceManifest,
+      groupId: requirement?.groupId || resolution?.groupId || '',
+      artifactId: requirement?.artifactId || resolution?.artifactId || '',
       isDevelopmentDependency: Boolean(base.isDevelopmentDependency),
       versionType: requirement?.declaredVersion ? versionType(requirement.declaredVersion) : 'unknown',
       extractedAt: new Date().toISOString(),

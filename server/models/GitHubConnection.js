@@ -14,8 +14,13 @@ const githubConnectionSchema = new Schema(
     githubUserId: { type: Number, default: null },
     githubUsername: { type: String, default: '' },
     avatarUrl: { type: String, default: '' },
-    installationId: { type: Number, required: true, unique: true, index: true },
-    installationUrl: { type: String, default: '' },
+    accessToken: {
+      encrypted: { type: String, required: true },
+      iv: { type: String, required: true },
+      authTag: { type: String, required: true },
+    },
+    tokenType: { type: String, default: 'bearer' },
+    scope: { type: String, default: '' },
     connectedAt: { type: Date, default: Date.now },
     status: {
       type: String,
@@ -30,6 +35,7 @@ githubConnectionSchema.index({ userId: 1, status: 1 })
 
 githubConnectionSchema.methods.toJSON = function toJSON() {
   const obj = this.toObject()
+  delete obj.accessToken
   delete obj.__v
   return obj
 }

@@ -1,123 +1,148 @@
+import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
-  Activity,
-  Bot,
-  BrainCircuit,
-  ChevronLeft,
-  FileBarChart2,
-  GitBranch,
-  LayoutDashboard,
-  LogOut,
-  Package,
-  PanelLeftOpen,
-  Settings,
-  Sparkles,
-  X,
-} from 'lucide-react'
-import { NavLink, useNavigate } from 'react-router-dom'
+  LuBrain,
+  LuCircleArrowUp,
+  LuCircleHelp,
+  LuGitBranch,
+  LuLayoutDashboard,
+  LuLogOut,
+  LuPanelLeftClose,
+  LuPanelLeftOpen,
+  LuSettings,
+  LuSparkles,
+  LuX,
+} from 'react-icons/lu'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { LogoMark } from '../common/Logo'
 import { useAuth } from '../../context/AuthContext'
+import HelpModal from './HelpModal'
 
-const navGroups = [
+const PRIMARY_NAV_ITEMS = [
   {
     label: 'Overview',
-    items: [{ label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' }],
+    path: '/dashboard',
+    icon: LuLayoutDashboard,
+    isMatch: (pathname) => pathname === '/dashboard',
   },
   {
-    label: 'Project management',
-    items: [
-      { label: 'My Repositories', icon: GitBranch, path: '/dashboard/repositories' },
-      { label: 'Dependencies', icon: Package, path: '/dashboard/dependencies' },
-    ],
+    label: 'Repositories',
+    path: '/dashboard/repositories',
+    icon: LuGitBranch,
+    isMatch: (pathname) =>
+      pathname === '/dashboard/repositories' ||
+      pathname.startsWith('/dashboard/repositories/') ||
+      pathname.startsWith('/dashboard/dependencies'),
   },
   {
-    label: 'Intelligence',
-    items: [
-      { label: 'Update Intelligence', icon: Activity, path: '/dashboard/intelligence' },
-      { label: 'AI Recommendations', icon: Bot, path: '/dashboard/recommendations' },
-      { label: 'Memento Memory', icon: BrainCircuit, path: '/dashboard/memory' },
-    ],
+    label: 'Updates',
+    path: '/dashboard/updates',
+    icon: LuCircleArrowUp,
+    isMatch: (pathname) =>
+      pathname.startsWith('/dashboard/updates') ||
+      pathname.startsWith('/dashboard/intelligence') ||
+      pathname.startsWith('/dashboard/vulnerabilities') ||
+      pathname.startsWith('/dashboard/reports'),
   },
   {
-    label: 'Management',
-    items: [
-      { label: 'Reports', icon: FileBarChart2, path: '/dashboard/reports' },
-      { label: 'Settings', icon: Settings, path: '/dashboard/settings' },
-    ],
+    label: 'AI Intelligence',
+    path: '/dashboard/ai',
+    icon: LuSparkles,
+    isMatch: (pathname) =>
+      pathname.startsWith('/dashboard/ai') ||
+      pathname.startsWith('/dashboard/recommendations'),
+  },
+  {
+    label: 'Memento',
+    path: '/dashboard/memory',
+    icon: LuBrain,
+    isMatch: (pathname) =>
+      pathname.startsWith('/dashboard/memory') ||
+      pathname.startsWith('/dashboard/history') ||
+      pathname.startsWith('/dashboard/feedback'),
   },
 ]
 
-function NavItems({ collapsed, onNavigate }) {
+function NavButton({ item, isActive, collapsed, onNavigate }) {
+  const Icon = item.icon
   return (
-    <nav className="scrollbar-slim flex-1 space-y-6 overflow-y-auto px-3 py-5">
-      {navGroups.map((group) => (
-        <div key={group.label}>
-          <p
-            className={`mb-2 px-3 text-[10px] font-bold tracking-[0.16em] text-muted uppercase ${collapsed ? 'text-center' : ''}`}
-          >
-            {collapsed ? '•' : group.label}
-          </p>
-          <div className="space-y-1">
-            {group.items.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.path === '/dashboard'}
-                onClick={onNavigate}
-                title={collapsed ? item.label : undefined}
-                className={({ isActive }) =>
-                  [
-                    'group relative flex h-10 items-center rounded-lg text-[13px] font-medium transition-all duration-200',
-                    collapsed ? 'justify-center px-0' : 'gap-3 px-3',
-                    isActive
-                      ? 'bg-brand/12 text-brandlight'
-                      : 'text-subtle hover:bg-white/[0.05] hover:text-ink',
-                  ].join(' ')
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    {isActive ? (
-                      <motion.span
-                        layoutId="sidebar-active"
-                        className="absolute top-1.5 bottom-1.5 left-0 w-[3px] rounded-full bg-brandlight"
-                      />
-                    ) : null}
-                    <item.icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
-                    {!collapsed ? <span className="truncate">{item.label}</span> : null}
-                  </>
-                )}
-              </NavLink>
-            ))}
-          </div>
+    <NavLink
+      to={item.path}
+      onClick={onNavigate}
+      className={[
+        'group relative flex h-10 items-center rounded-xl text-[13px] font-medium transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+        collapsed ? 'justify-center px-0' : 'gap-3 px-3.5',
+        isActive
+          ? 'bg-brand/15 text-brandlight shadow-2xs font-semibold'
+          : 'text-subtle hover:bg-white/[0.05] hover:text-ink',
+      ].join(' ')}
+    >
+      {isActive ? (
+        <motion.span
+          layoutId="sidebar-active"
+          className="absolute top-2 bottom-2 left-0 w-[3px] rounded-r-full bg-brandlight"
+          transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+        />
+      ) : null}
+      <Icon
+        className={`h-[18px] w-[18px] shrink-0 transition-colors ${
+          isActive ? 'text-brandlight' : 'text-subtle group-hover:text-ink'
+        }`}
+        aria-hidden="true"
+      />
+      {!collapsed ? <span className="truncate">{item.label}</span> : null}
+
+      {/* Floating tooltip for collapsed view */}
+      {collapsed ? (
+        <div className="pointer-events-none absolute left-full ml-3 z-50 whitespace-nowrap rounded-lg border border-line bg-elevated px-2.5 py-1 text-xs font-medium text-ink shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+          {item.label}
         </div>
-      ))}
-    </nav>
+      ) : null}
+    </NavLink>
   )
 }
 
-function SidebarContent({ collapsed, onCollapse, onNavigate, showCollapse }) {
-  const { user, logout } = useAuth()
+function SidebarContent({
+  collapsed,
+  onCollapse,
+  onNavigate,
+  showCollapse,
+  onOpenHelp,
+}) {
+  const location = useLocation()
   const navigate = useNavigate()
-  const initials = (user?.name || 'DU')
+  const { user, logout } = useAuth()
+  const pathname = location.pathname
+
+  const initials = (user?.name || 'Developer')
     .split(' ')
+    .filter(Boolean)
     .map((part) => part[0])
     .slice(0, 2)
     .join('')
-    .toUpperCase()
+    .toUpperCase() || 'DU'
 
   const handleLogout = async () => {
     await logout()
     navigate('/login', { replace: true })
   }
 
+  const isSettingsActive = pathname.startsWith('/dashboard/settings')
+
   return (
-    <div className="flex h-full flex-col bg-surface/95">
+    <div className="flex h-full flex-col bg-[#0D1220]">
+      {/* Top Header & Brand */}
       <div
-        className={`flex h-[72px] shrink-0 items-center border-b border-line ${collapsed ? 'justify-center px-2' : 'justify-between px-5'}`}
+        className={`flex h-[72px] shrink-0 items-center border-b border-line ${
+          collapsed ? 'justify-center px-2' : 'justify-between px-4'
+        }`}
       >
-        <div className={`flex items-center ${collapsed ? '' : 'gap-2.5'}`}>
-          <LogoMark className="h-8 w-8" />
+        <NavLink
+          to="/dashboard"
+          onClick={onNavigate}
+          className={`flex items-center outline-none ${collapsed ? '' : 'gap-2.5'}`}
+        >
+          <LogoMark className="h-8 w-8 shrink-0" />
           {!collapsed ? (
             <div className="leading-tight">
               <p className="text-[15px] font-bold tracking-[-0.03em] text-ink">
@@ -126,70 +151,180 @@ function SidebarContent({ collapsed, onCollapse, onNavigate, showCollapse }) {
               <p className="text-[10px] text-muted">Dependency intelligence</p>
             </div>
           ) : null}
-        </div>
+        </NavLink>
+
         {showCollapse && !collapsed ? (
           <button
             type="button"
             onClick={onCollapse}
             aria-label="Collapse sidebar"
-            className="rounded-lg p-1.5 text-muted transition hover:bg-white/5 hover:text-ink"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition hover:bg-white/5 hover:text-ink focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <LuPanelLeftClose className="h-4 w-4" />
           </button>
         ) : null}
       </div>
 
-      <NavItems collapsed={collapsed} onNavigate={onNavigate} />
+      {/* Main Workspace Navigation */}
+      <div className="scrollbar-slim flex-1 overflow-y-auto px-3 py-4">
+        {/* Workspace Category Label */}
+        <div className="mb-2 px-3">
+          <p
+            className={`text-[10px] font-bold tracking-[0.16em] text-muted uppercase ${
+              collapsed ? 'text-center' : ''
+            }`}
+          >
+            {collapsed ? '•' : 'WORKSPACE'}
+          </p>
+        </div>
 
-      <div className="shrink-0 border-t border-line p-3">
-        {!collapsed ? (
-          <div className="mb-2 flex items-center gap-3 rounded-xl bg-white/[0.03] p-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-accent text-xs font-bold text-white">
-              {initials}
+        {/* 5 Primary Navigation Items */}
+        <nav className="space-y-1" aria-label="Workspace navigation">
+          {PRIMARY_NAV_ITEMS.map((item) => (
+            <NavButton
+              key={item.path}
+              item={item}
+              isActive={item.isMatch(pathname)}
+              collapsed={collapsed}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </nav>
+      </div>
+
+      {/* Bottom Section: Settings, Help & Support, Profile */}
+      <div className="shrink-0 border-t border-line p-3 space-y-1">
+        {/* Settings */}
+        <NavLink
+          to="/dashboard/settings"
+          onClick={onNavigate}
+          className={[
+            'group relative flex h-10 items-center rounded-xl text-[13px] font-medium transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+            collapsed ? 'justify-center px-0' : 'gap-3 px-3.5',
+            isSettingsActive
+              ? 'bg-brand/15 text-brandlight shadow-2xs font-semibold'
+              : 'text-subtle hover:bg-white/[0.05] hover:text-ink',
+          ].join(' ')}
+        >
+          {isSettingsActive ? (
+            <motion.span
+              layoutId="sidebar-active"
+              className="absolute top-2 bottom-2 left-0 w-[3px] rounded-r-full bg-brandlight"
+              transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+            />
+          ) : null}
+          <LuSettings
+            className={`h-[18px] w-[18px] shrink-0 transition-colors ${
+              isSettingsActive ? 'text-brandlight' : 'text-subtle group-hover:text-ink'
+            }`}
+            aria-hidden="true"
+          />
+          {!collapsed ? <span className="truncate">Settings</span> : null}
+          {collapsed ? (
+            <div className="pointer-events-none absolute left-full ml-3 z-50 whitespace-nowrap rounded-lg border border-line bg-elevated px-2.5 py-1 text-xs font-medium text-ink shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+              Settings
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-ink">{user?.name || 'Developer'}</p>
-              <p className="truncate text-[11px] text-muted">{user?.email || 'demo@devupdate.ai'}</p>
-            </div>
-          </div>
-        ) : null}
+          ) : null}
+        </NavLink>
+
+        {/* Help & Support */}
         <button
           type="button"
-          onClick={handleLogout}
-          title="Log out"
-          className={`flex h-10 w-full items-center rounded-lg text-[13px] font-medium text-subtle transition hover:bg-danger/10 hover:text-danger ${collapsed ? 'justify-center' : 'gap-3 px-3'}`}
+          onClick={onOpenHelp}
+          className={[
+            'group relative flex h-10 w-full items-center rounded-xl text-[13px] font-medium transition-all duration-200 text-subtle hover:bg-white/[0.05] hover:text-ink outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+            collapsed ? 'justify-center px-0' : 'gap-3 px-3.5',
+          ].join(' ')}
         >
-          <LogOut className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
-          {!collapsed ? 'Log out' : null}
+          <LuCircleHelp
+            className="h-[18px] w-[18px] shrink-0 text-subtle group-hover:text-ink transition-colors"
+            aria-hidden="true"
+          />
+          {!collapsed ? <span className="truncate">Help & Support</span> : null}
+          {collapsed ? (
+            <div className="pointer-events-none absolute left-full ml-3 z-50 whitespace-nowrap rounded-lg border border-line bg-elevated px-2.5 py-1 text-xs font-medium text-ink shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+              Help & Support
+            </div>
+          ) : null}
         </button>
+
+        {/* User Profile Card */}
+        <div className="pt-2">
+          {!collapsed ? (
+            <div className="flex items-center gap-2.5 rounded-xl border border-line/60 bg-white/[0.02] p-2">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand to-accent text-xs font-bold text-white shadow-2xs">
+                {initials}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <p className="truncate text-xs font-semibold text-ink">
+                    {user?.name || 'Developer'}
+                  </p>
+                </div>
+                <span className="inline-block rounded-full bg-brand/15 px-1.5 py-0.2 text-[9.5px] font-semibold text-brandlight">
+                  Free Workspace
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleLogout}
+                title="Log out"
+                aria-label="Log out"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted transition hover:bg-danger/10 hover:text-danger focus-visible:ring-2 focus-visible:ring-danger focus-visible:outline-none"
+              >
+                <LuLogOut className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="group relative flex h-9 w-9 items-center justify-center rounded-xl text-subtle transition hover:bg-danger/10 hover:text-danger focus-visible:ring-2 focus-visible:ring-danger focus-visible:outline-none"
+                aria-label="Log out"
+              >
+                <LuLogOut className="h-4 w-4" />
+                <div className="pointer-events-none absolute left-full ml-3 z-50 whitespace-nowrap rounded-lg border border-line bg-elevated px-2.5 py-1 text-xs font-medium text-ink shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                  Log out
+                </div>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
 }
 
 export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
+  const [helpOpen, setHelpOpen] = useState(false)
+
   return (
     <>
+      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+
       {/* Desktop sidebar */}
       <motion.aside
         initial={false}
-        animate={{ width: collapsed ? 76 : 250 }}
-        transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+        animate={{ width: collapsed ? 72 : 240 }}
+        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
         className="fixed inset-y-0 left-0 z-40 hidden border-r border-line lg:block"
+        style={{ width: collapsed ? 72 : 240 }}
       >
         <SidebarContent
           collapsed={collapsed}
           onCollapse={() => setCollapsed(true)}
           showCollapse
+          onOpenHelp={() => setHelpOpen(true)}
         />
         {collapsed ? (
           <button
             type="button"
             onClick={() => setCollapsed(false)}
             aria-label="Expand sidebar"
-            className="absolute top-[86px] -right-3 flex h-6 w-6 items-center justify-center rounded-full border border-line bg-elevated text-subtle shadow-lg transition hover:text-ink"
+            className="absolute top-[86px] -right-3 flex h-6 w-6 items-center justify-center rounded-full border border-line bg-elevated text-subtle shadow-lg transition hover:text-ink focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none"
           >
-            <PanelLeftOpen className="h-3.5 w-3.5" />
+            <LuPanelLeftOpen className="h-3.5 w-3.5" />
           </button>
         ) : null}
       </motion.aside>
@@ -209,25 +344,26 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
-              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              className="relative h-full w-[280px] max-w-[85vw] border-r border-line shadow-2xl"
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+              className="relative h-full w-[260px] max-w-[85vw] border-r border-line shadow-2xl"
             >
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}
                 aria-label="Close navigation"
-                className="absolute top-5 right-3 z-10 rounded-lg p-1.5 text-muted transition hover:bg-white/5 hover:text-ink"
+                className="absolute top-5 right-3 z-10 rounded-lg p-1.5 text-muted transition hover:bg-white/5 hover:text-ink focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none"
               >
-                <X className="h-5 w-5" />
+                <LuX className="h-5 w-5" />
               </button>
               <SidebarContent
                 collapsed={false}
                 onCollapse={() => setMobileOpen(false)}
                 onNavigate={() => setMobileOpen(false)}
+                onOpenHelp={() => {
+                  setMobileOpen(false)
+                  setHelpOpen(true)
+                }}
               />
-              <div className="pointer-events-none absolute right-4 bottom-20 flex items-center gap-1.5 text-[10px] text-muted">
-                <Sparkles className="h-3 w-3 text-brandlight" /> Phase 1 preview
-              </div>
             </motion.aside>
           </div>
         ) : null}

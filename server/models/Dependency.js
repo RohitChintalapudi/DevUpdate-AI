@@ -16,6 +16,8 @@ const dependencySchema = new Schema(
       default: 'runtime',
     },
     sourceManifest: { type: String, required: true },
+    groupId: { type: String, default: '' },
+    artifactId: { type: String, default: '' },
     isDevelopmentDependency: { type: Boolean, default: false },
     versionType: {
       type: String,

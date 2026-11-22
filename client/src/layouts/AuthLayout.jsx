@@ -1,150 +1,244 @@
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowRight, CircleDot, GitBranch, LockKeyhole, Sparkles } from 'lucide-react'
+import { LuSparkles } from 'react-icons/lu'
+import {
+  ReactOriginal,
+  TypescriptOriginal,
+  PythonOriginal,
+  NodejsOriginal,
+  GithubOriginal,
+  DockerOriginal,
+} from 'devicons-react'
 import Logo from '../components/common/Logo'
 
-const nodes = [
-  { cx: 90, cy: 110, r: 8, delay: 0 },
-  { cx: 250, cy: 60, r: 5, delay: 0.4 },
-  { cx: 330, cy: 190, r: 11, delay: 0.8 },
-  { cx: 160, cy: 240, r: 6, delay: 1.2 },
-  { cx: 395, cy: 315, r: 6, delay: 0.6 },
-  { cx: 220, cy: 370, r: 9, delay: 1.6 },
-  { cx: 65, cy: 330, r: 4, delay: 1 },
-]
+// Official developer stack badges placed on outer orbits flanking the centered card
+const authOrbitBadges = [
+  // Left Flank
+  {
+    id: 'react',
+    label: 'React',
+    desc: 'React 19 hooks & client components',
+    component: ReactOriginal,
+    top: '22%',
+    left: 'calc(50% - 370px)',
+    floatDuration: 6.2,
+    yDelta: -7,
+    delay: 0.1,
+  },
+  {
+    id: 'ts',
+    label: 'TypeScript',
+    desc: 'Compiler breaking change analysis',
+    component: TypescriptOriginal,
+    top: '50%',
+    left: 'calc(50% - 470px)',
+    floatDuration: 7.0,
+    yDelta: 8,
+    delay: 0.2,
+  },
+  {
+    id: 'python',
+    label: 'Python',
+    desc: 'PyPI packages & runtime security',
+    component: PythonOriginal,
+    top: '76%',
+    left: 'calc(50% - 360px)',
+    floatDuration: 6.6,
+    yDelta: -8,
+    delay: 0.3,
+  },
 
-const edges = [
-  [0, 1],
-  [1, 2],
-  [2, 3],
-  [3, 0],
-  [2, 4],
-  [4, 5],
-  [5, 3],
-  [3, 6],
-  [6, 5],
+  // Right Flank
+  {
+    id: 'node',
+    label: 'Node.js',
+    desc: 'LTS engine compatibility & CVEs',
+    component: NodejsOriginal,
+    top: '22%',
+    left: 'calc(50% + 320px)',
+    floatDuration: 6.8,
+    yDelta: 7,
+    delay: 0.15,
+  },
+  {
+    id: 'github',
+    label: 'GitHub',
+    desc: 'Automated PRs & lockfile sync',
+    component: GithubOriginal,
+    top: '50%',
+    left: 'calc(50% + 420px)',
+    floatDuration: 6.5,
+    yDelta: -7,
+    delay: 0.25,
+  },
+  {
+    id: 'docker',
+    label: 'Docker',
+    desc: 'Base images & container advisories',
+    component: DockerOriginal,
+    top: '76%',
+    left: 'calc(50% + 310px)',
+    floatDuration: 7.3,
+    yDelta: 8,
+    delay: 0.35,
+  },
 ]
-
-function DependencyGraph() {
-  return (
-    <svg viewBox="0 0 460 420" fill="none" className="h-full w-full" aria-hidden="true">
-      <defs>
-        <radialGradient id="nodeGlow">
-          <stop offset="0%" stopColor="#A78BFA" stopOpacity="0.9" />
-          <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0.15" />
-        </radialGradient>
-        <linearGradient id="edgeGrad" x1="0" y1="0" x2="1" y2="1">
-          <stop stopColor="#8B5CF6" stopOpacity="0.65" />
-          <stop offset="1" stopColor="#22D3EE" stopOpacity="0.35" />
-        </linearGradient>
-      </defs>
-      <circle cx="230" cy="210" r="170" fill="url(#nodeGlow)" opacity="0.08" />
-      {edges.map(([from, to], index) => (
-        <line
-          key={index}
-          x1={nodes[from].cx}
-          y1={nodes[from].cy}
-          x2={nodes[to].cx}
-          y2={nodes[to].cy}
-          stroke="url(#edgeGrad)"
-          strokeWidth="1.2"
-          className="animate-dash"
-        />
-      ))}
-      {nodes.map((node, index) => (
-        <motion.g
-          key={index}
-          initial={{ opacity: 0, scale: 0.4 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.6, delay: node.delay }}
-          style={{ transformOrigin: `${node.cx}px ${node.cy}px` }}
-        >
-          <circle cx={node.cx} cy={node.cy} r={node.r * 2.6} fill="#8B5CF6" opacity="0.07" />
-          <circle
-            cx={node.cx}
-            cy={node.cy}
-            r={node.r}
-            fill="#111827"
-            stroke={index % 3 === 0 ? '#22D3EE' : '#A78BFA'}
-            strokeWidth="1.6"
-          />
-          <circle cx={node.cx} cy={node.cy} r={node.r * 0.35} fill={index % 3 === 0 ? '#22D3EE' : '#A78BFA'} />
-        </motion.g>
-      ))}
-      <motion.g
-        animate={{ y: [0, -8, 0] }}
-        transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-      >
-        <rect x="286" y="96" width="118" height="38" rx="10" fill="#151C2D" stroke="rgba(167,139,250,0.35)" />
-        <text x="302" y="120" fill="#F8FAFC" fontSize="12" fontFamily="Inter, sans-serif" fontWeight="600">
-          v2.4.0 available
-        </text>
-      </motion.g>
-    </svg>
-  )
-}
 
 export default function AuthLayout({ title, description, children, footer, badge }) {
+  const [activeTooltip, setActiveTooltip] = useState(null)
+
+  // Enforce zero scroll and clean surface background to fit viewport exactly
+  useEffect(() => {
+    const prevBg = document.body.style.backgroundColor
+    const prevColor = document.body.style.color
+    const prevOverflow = document.body.style.overflow
+    document.body.style.backgroundColor = '#F8FAFC'
+    document.body.style.color = '#0F172A'
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.backgroundColor = prevBg
+      document.body.style.color = prevColor
+      document.body.style.overflow = prevOverflow
+    }
+  }, [])
+
   return (
-    <div className="relative flex min-h-screen bg-canvas">
-      <div className="grid-bg pointer-events-none absolute inset-0" />
-      <div className="pointer-events-none absolute top-[-20%] left-[-10%] h-[520px] w-[520px] rounded-full bg-brand/10 blur-[120px]" />
+    <div className="relative h-screen w-full overflow-hidden bg-[#F8FAFC] text-slate-900 font-sans antialiased selection:bg-slate-900 selection:text-white flex flex-col justify-center items-center px-4 py-3 sm:py-5">
+      {/* =========================================================
+       * Concentric Orbital Background & Ethereal Glow
+       * ========================================================= */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden">
+        <svg
+          viewBox="0 0 1400 900"
+          fill="none"
+          className="h-[950px] w-[1400px] max-w-none shrink-0"
+        >
+          {/* Subtle concentric circles */}
+          <circle cx="700" cy="450" r="280" stroke="#F1F5F9" strokeWidth="1.2" strokeDasharray="4 4" />
+          <circle cx="700" cy="450" r="420" stroke="#E2E8F0" strokeWidth="1.2" />
+          <circle cx="700" cy="450" r="580" stroke="#E2E8F0" strokeWidth="1.2" />
+          <circle cx="700" cy="450" r="760" stroke="#F1F5F9" strokeWidth="1.2" />
 
-      {/* Brand panel */}
-      <div className="relative hidden w-[46%] shrink-0 flex-col justify-between overflow-hidden border-r border-line bg-surface/50 p-10 xl:p-14 lg:flex">
-        <div className="pointer-events-none absolute inset-0 dot-grid opacity-30" />
-        <div className="relative">
-          <Logo />
-        </div>
+          {/* Elegant colored arcs matching landing hero */}
+          <path
+            d="M 280 450 A 420 420 0 0 1 450 160"
+            stroke="url(#auth-blue-arc)"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          />
+          <path
+            d="M 1120 450 A 420 420 0 0 1 950 740"
+            stroke="url(#auth-indigo-arc)"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          />
 
-        <div className="relative max-w-md">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-brand/25 bg-brand/10 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-brandlight uppercase">
-            <Sparkles className="h-3.5 w-3.5" />
-            {badge || 'Dependency intelligence'}
-          </div>
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-[42px] leading-[1.08] font-bold tracking-[-0.045em] text-ink xl:text-[50px]"
+          <defs>
+            <linearGradient id="auth-blue-arc" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#38BDF8" />
+              <stop offset="100%" stopColor="#6366F1" />
+            </linearGradient>
+            <linearGradient id="auth-indigo-arc" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#6366F1" />
+              <stop offset="100%" stopColor="#A855F7" />
+            </linearGradient>
+          </defs>
+        </svg>
+
+        {/* Ambient Soft Cyan & Indigo Blur Aura directly behind the card */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[420px] w-[580px] rounded-full bg-sky-200/35 blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[300px] w-[450px] rounded-full bg-indigo-200/20 blur-2xl" />
+      </div>
+
+      {/* =========================================================
+       * Floating Developer Stack Badges on the Orbits (Flanking)
+       * ========================================================= */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden hidden lg:block">
+        {authOrbitBadges.map((badgeItem) => (
+          <motion.div
+            key={badgeItem.id}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{
+              opacity: 1,
+              scale: 1,
+              y: [0, badgeItem.yDelta, 0],
+            }}
+            transition={{
+              opacity: { duration: 0.6, delay: badgeItem.delay },
+              scale: { duration: 0.6, delay: badgeItem.delay },
+              y: {
+                duration: badgeItem.floatDuration,
+                repeat: Infinity,
+                ease: 'easeInOut',
+              },
+            }}
+            style={{
+              position: 'absolute',
+              top: badgeItem.top,
+              left: badgeItem.left,
+            }}
+            className="pointer-events-auto z-10"
+            onMouseEnter={() => setActiveTooltip(badgeItem.id)}
+            onMouseLeave={() => setActiveTooltip(null)}
           >
-            {title}
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="mt-5 text-[15px] leading-relaxed text-subtle"
-          >
-            {description}
-          </motion.p>
-          <div className="mt-8 h-[280px] w-full opacity-90 xl:h-[330px]">
-            <DependencyGraph />
-          </div>
-        </div>
+            <div className="group relative">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200/80 bg-white/95 p-2.5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.06)] backdrop-blur-sm transition-all duration-200 group-hover:scale-120 group-hover:shadow-[0_12px_32px_-4px_rgba(0,0,0,0.14)] group-hover:border-slate-300">
+                <badgeItem.component size={24} />
+              </div>
 
-        <div className="relative flex items-center gap-4 text-[11px] text-muted">
-          <span className="flex items-center gap-1.5"><GitBranch className="h-3.5 w-3.5 text-brandlight" /> Connected projects</span>
-          <span className="flex items-center gap-1.5"><CircleDot className="h-3.5 w-3.5 text-accent" /> Release insights</span>
-          <span className="flex items-center gap-1.5"><LockKeyhole className="h-3.5 w-3.5 text-success" /> Private by design</span>
+              {/* Tooltip on Hover */}
+              {activeTooltip === badgeItem.id ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 4, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  className="absolute bottom-full left-1/2 mb-2 w-44 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-2 text-center shadow-lg z-30"
+                >
+                  <p className="text-xs font-bold text-slate-900">{badgeItem.label}</p>
+                  <p className="mt-0.5 text-[10px] text-slate-500 leading-tight">{badgeItem.desc}</p>
+                </motion.div>
+              ) : null}
+            </div>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* =========================================================
+       * Top Header Logo
+       * ========================================================= */}
+      <div className="relative z-20 mb-2.5 sm:mb-3 text-center shrink-0">
+        <div className="inline-block transition-transform hover:scale-105">
+          <Logo theme="light" />
         </div>
       </div>
 
-      {/* Form panel */}
-      <div className="relative flex flex-1 flex-col">
-        <div className="relative flex items-center justify-between px-6 py-6 lg:hidden">
-          <Logo />
-          <ArrowRight className="h-4 w-4 text-muted" />
-        </div>
-        <div className="relative flex flex-1 items-center justify-center px-5 py-10 sm:px-10">
-          <div className="w-full max-w-[430px]">
-            <div className="mb-8 lg:hidden">
-              <h1 className="text-[32px] leading-tight font-bold tracking-[-0.04em] text-ink">{title}</h1>
-              <p className="mt-3 text-sm text-subtle">{description}</p>
-            </div>
-            {children}
+      {/* =========================================================
+       * Main Centered Card Container
+       * ========================================================= */}
+      <div className="relative z-20 w-full max-w-[450px] shrink-0">
+        <div className="rounded-3xl border border-slate-200/90 bg-white p-5 sm:p-6 sm:px-8 shadow-[0_16px_50px_-12px_rgba(0,0,0,0.06)]">
+          {/* Card Header */}
+          <div className="text-center mb-4">
+            {badge ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-0.5 text-[10px] font-bold tracking-[0.14em] uppercase text-sky-700 shadow-2xs mb-1.5">
+                <LuSparkles className="h-2.5 w-2.5 text-sky-600" />
+                {badge}
+              </span>
+            ) : null}
+            <h1 className="text-xl sm:text-[22px] font-bold tracking-tight text-slate-950">{title}</h1>
+            {description ? (
+              <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">{description}</p>
+            ) : null}
           </div>
+
+          {/* Form Content */}
+          {children}
         </div>
-        {footer ? <div className="relative px-6 pb-8 text-center">{footer}</div> : null}
+
+        {/* Footer switch link */}
+        {footer ? (
+          <div className="mt-2.5 text-center text-xs text-slate-500">{footer}</div>
+        ) : null}
       </div>
     </div>
   )

@@ -28,6 +28,14 @@ const repositorySchema = new Schema(
     lastScanError: { type: String, default: '' },
     dependencyCount: { type: Number, default: 0 },
     manifestFiles: { type: [String], default: [] },
+    lastUpdateCheckAt: { type: Date, default: null },
+    updateCheckStatus: {
+      type: String,
+      enum: ['NOT_CHECKED', 'QUEUED', 'SCANNING', 'COMPLETED', 'FAILED'],
+      default: 'NOT_CHECKED',
+    },
+    outdatedCount: { type: Number, default: 0 },
+    vulnerableCount: { type: Number, default: 0 },
   },
   { timestamps: true },
 )

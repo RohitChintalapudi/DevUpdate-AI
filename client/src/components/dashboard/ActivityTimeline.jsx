@@ -1,7 +1,7 @@
-import { ArrowUpCircle, FileSearch, Radar, ShieldAlert } from 'lucide-react'
+import { LuCircleArrowUp, LuFileSearch, LuRadar, LuShieldAlert } from 'react-icons/lu'
 import { recentActivity } from '../../data/mockData'
 
-const iconMap = { ArrowUpCircle, FileSearch, Radar, ShieldAlert }
+const iconMap = { LuCircleArrowUp, LuFileSearch, LuRadar, LuShieldAlert }
 const toneMap = {
   violet: 'bg-brand/12 text-brandlight ring-brand/20',
   cyan: 'bg-accent/10 text-accent ring-accent/20',
@@ -13,7 +13,7 @@ export default function ActivityTimeline({ items = recentActivity }) {
   return (
     <div className="relative">
       {items.map((item, index) => {
-        const Icon = iconMap[item.icon] || Radar
+        const Icon = iconMap[item.icon] || LuRadar
         return (
           <div key={item.id} className="relative flex gap-3.5 pb-5 last:pb-0">
             {index !== items.length - 1 ? (

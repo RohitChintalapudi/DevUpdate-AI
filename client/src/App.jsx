@@ -9,10 +9,22 @@ import ForgotPassword from './pages/ForgotPassword'
 import NotFound from './pages/NotFound'
 import Overview from './pages/dashboard/Overview'
 import Repositories from './pages/dashboard/Repositories'
+import RepositoryDetails from './pages/dashboard/RepositoryDetails'
 import Dependencies from './pages/dashboard/Dependencies'
 import UpdateIntelligence from './pages/dashboard/UpdateIntelligence'
+import DependencyUpdates from './pages/dashboard/DependencyUpdates'
+import RepositoryUpdateDetails from './pages/dashboard/RepositoryUpdateDetails'
+import DependencyUpdateDetail from './pages/dashboard/DependencyUpdateDetail'
+import Vulnerabilities from './pages/dashboard/Vulnerabilities'
 import Recommendations from './pages/dashboard/Recommendations'
+import AiOverview from './pages/dashboard/AiOverview'
+import AnalysisDetail from './pages/dashboard/AnalysisDetail'
+import ResearchLibrary from './pages/dashboard/ResearchLibrary'
+import RepositoryChat from './pages/dashboard/RepositoryChat'
 import Memory from './pages/dashboard/Memory'
+import History from './pages/dashboard/History'
+import Feedback from './pages/dashboard/Feedback'
+import Notifications from './pages/dashboard/Notifications'
 import Reports from './pages/dashboard/Reports'
 import Settings from './pages/dashboard/Settings'
 
@@ -52,10 +64,22 @@ export default function App() {
       >
         <Route index element={<Overview />} />
         <Route path="repositories" element={<Repositories />} />
+        <Route path="repositories/:id" element={<RepositoryDetails />} />
         <Route path="dependencies" element={<Dependencies />} />
         <Route path="intelligence" element={<UpdateIntelligence />} />
+        <Route path="updates" element={<DependencyUpdates />} />
+        <Route path="updates/repository/:repositoryId" element={<RepositoryUpdateDetails />} />
+        <Route path="updates/:dependencyId" element={<DependencyUpdateDetail />} />
+        <Route path="vulnerabilities" element={<Vulnerabilities />} />
+        <Route path="ai" element={<AiOverview />} />
+        <Route path="ai/analysis/:analysisId" element={<AnalysisDetail />} />
+        <Route path="ai/research" element={<ResearchLibrary />} />
+        <Route path="ai/chat" element={<RepositoryChat />} />
         <Route path="recommendations" element={<Recommendations />} />
         <Route path="memory" element={<Memory />} />
+        <Route path="history" element={<History />} />
+        <Route path="feedback" element={<Feedback />} />
+        <Route path="notifications" element={<Notifications />} />
         <Route path="reports" element={<Reports />} />
         <Route path="settings" element={<Settings />} />
       </Route>

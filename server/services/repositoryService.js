@@ -1,13 +1,15 @@
 import GitHubConnection from '../models/GitHubConnection.js'
 import Repository from '../models/Repository.js'
 import { AppError } from '../utils/errors.js'
+import { decryptAccessToken } from '../utils/tokenCrypto.js'
 import { listAccessibleRepositories } from './githubService.js'
 
 export async function syncRepositories(userId) {
   const connection = await GitHubConnection.findOne({ userId, status: 'CONNECTED' })
   if (!connection) throw new AppError('Connect GitHub before syncing repositories.', 409)
 
-  const repositories = await listAccessibleRepositories(connection.installationId)
+  const accessToken = decryptAccessToken(connection.accessToken)
+  const repositories = await listAccessibleRepositories(accessToken)
   if (repositories.length) {
     await Repository.bulkWrite(
       repositories.map((repository) => ({

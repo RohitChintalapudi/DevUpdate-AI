@@ -1,20 +1,6 @@
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import {
-  AlertCircle,
-  Bell,
-  Check,
-  CircleCheck,
-  LockKeyhole,
-  Mail,
-  Monitor,
-  Moon,
-  Palette,
-  Save,
-  Shield,
-  Sun,
-  UserRound,
-} from 'lucide-react'
+import { LuBell, LuCheck, LuCircleAlert, LuCircleCheck, LuLockKeyhole, LuMail, LuMonitor, LuMoon, LuPalette, LuSave, LuShield, LuSun, LuUserRound } from 'react-icons/lu'
 import { useSearchParams } from 'react-router-dom'
 import Button from '../../components/common/Button'
 import Card from '../../components/common/Card'
@@ -23,17 +9,17 @@ import PageHeader from '../../components/common/PageHeader'
 import { useAuth } from '../../context/AuthContext'
 
 const tabs = [
-  { id: 'profile', label: 'Profile', icon: UserRound },
-  { id: 'account', label: 'Account', icon: Shield },
-  { id: 'appearance', label: 'Appearance', icon: Palette },
-  { id: 'notifications', label: 'Notifications', icon: Bell },
-  { id: 'security', label: 'Security', icon: LockKeyhole },
+  { id: 'profile', label: 'Profile', icon: LuUserRound },
+  { id: 'account', label: 'Account', icon: LuShield },
+  { id: 'appearance', label: 'Appearance', icon: LuPalette },
+  { id: 'notifications', label: 'Notifications', icon: LuBell },
+  { id: 'security', label: 'Security', icon: LuLockKeyhole },
 ]
 
 const themes = [
-  { id: 'dark', label: 'Midnight', description: 'Dark theme — the current DevUpdate AI look', icon: Moon, active: true },
-  { id: 'light', label: 'Daylight', description: 'Planned for a future phase', icon: Sun, active: false },
-  { id: 'system', label: 'System', description: 'Planned for a future phase', icon: Monitor, active: false },
+  { id: 'dark', label: 'Midnight', description: 'Dark theme — the current DevUpdate AI look', icon: LuMoon, active: true },
+  { id: 'light', label: 'Daylight', description: 'Planned for a future phase', icon: LuSun, active: false },
+  { id: 'system', label: 'System', description: 'Planned for a future phase', icon: LuMonitor, active: false },
 ]
 
 export default function Settings() {
@@ -119,19 +105,19 @@ export default function Settings() {
                 <form onSubmit={handleSave} className="mt-6 max-w-lg space-y-5">
                   {message ? (
                     <div role="status" className="flex items-center gap-2 rounded-xl border border-success/25 bg-success/[0.07] px-3.5 py-3 text-[13px] text-success">
-                      <CircleCheck className="h-4 w-4" /> {message}
+                      <LuCircleCheck className="h-4 w-4" /> {message}
                     </div>
                   ) : null}
                   {error ? (
                     <div role="alert" className="flex items-center gap-2 rounded-xl border border-danger/25 bg-danger/[0.07] px-3.5 py-3 text-[13px] text-danger">
-                      <AlertCircle className="h-4 w-4" /> {error}
+                      <LuCircleAlert className="h-4 w-4" /> {error}
                     </div>
                   ) : null}
-                  <Input label="Full name" icon={UserRound} value={name} onChange={(event) => setName(event.target.value)} />
+                  <Input label="Full name" icon={LuUserRound} value={name} onChange={(event) => setName(event.target.value)} />
                   <div>
-                    <Input label="Email address" icon={Mail} value={email} disabled hint="Email changes are not available in Phase 1." />
+                    <Input label="Email address" icon={LuMail} value={email} disabled hint="Email changes are not available in Phase 1." />
                   </div>
-                  <Button type="submit" loading={saving} leftIcon={Save}>Save changes</Button>
+                  <Button type="submit" loading={saving} leftIcon={LuSave}>Save changes</Button>
                 </form>
               </Card>
             ) : null}
@@ -176,7 +162,7 @@ export default function Settings() {
                       <theme.icon className={`h-5 w-5 ${theme.active ? 'text-brandlight' : 'text-muted'}`} />
                       <p className="mt-3 text-[13px] font-semibold text-ink">{theme.label}</p>
                       <p className="mt-1 text-[11px] leading-relaxed text-muted">{theme.description}</p>
-                      {theme.active ? <Check className="absolute top-3 right-3 h-4 w-4 text-brandlight" /> : null}
+                      {theme.active ? <LuCheck className="absolute top-3 right-3 h-4 w-4 text-brandlight" /> : null}
                     </button>
                   ))}
                 </div>
@@ -220,14 +206,14 @@ export default function Settings() {
                 <p className="mt-1 text-[12px] text-subtle">Session and account protection details.</p>
                 <div className="mt-6 space-y-3">
                   <div className="flex items-center gap-3 rounded-xl border border-line bg-canvas/40 p-4">
-                    <Shield className="h-5 w-5 text-success" />
+                    <LuShield className="h-5 w-5 text-success" />
                     <div>
                       <p className="text-[13px] font-medium text-ink">HTTP-only session cookie</p>
                       <p className="mt-0.5 text-[11px] text-muted">Active · protected from client-side JavaScript access</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 rounded-xl border border-line bg-canvas/40 p-4">
-                    <LockKeyhole className="h-5 w-5 text-brandlight" />
+                    <LuLockKeyhole className="h-5 w-5 text-brandlight" />
                     <div>
                       <p className="text-[13px] font-medium text-ink">Password change</p>
                       <p className="mt-0.5 text-[11px] text-muted">Password rotation will be available in a later phase.</p>

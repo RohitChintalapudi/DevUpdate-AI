@@ -4,6 +4,9 @@ function handleMongooseDuplicate(error) {
   if (error.code === 11000 && error.keyValue?.email) {
     return new AppError('An account with this email already exists.', 409)
   }
+  if (error.code === 11000) {
+    return new AppError('This record already exists. Refresh and try again.', 409)
+  }
   return null
 }
 

@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRight, Menu, X } from 'lucide-react'
+import { LuMenu, LuX } from 'react-icons/lu'
 import { Link } from 'react-router-dom'
 import Logo from '../common/Logo'
-import { buttonStyles } from '../common/buttonStyles'
 
 const links = [
+  { label: 'Home', href: '#' },
   { label: 'Features', href: '#features' },
   { label: 'How It Works', href: '#how-it-works' },
-  { label: 'Benefits', href: '#benefits' },
+  { label: 'Technology', href: '#technology' },
   { label: 'About', href: '#about' },
+  { label: 'FAQ', href: '#faq' },
 ]
 
 export default function Navbar() {
@@ -26,77 +27,87 @@ export default function Navbar() {
   return (
     <header
       className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
-        scrolled ? 'bg-canvas/85 shadow-[0_16px_40px_-30px_rgba(0,0,0,0.9)]' : 'bg-transparent'
-      } backdrop-blur-xl`}
+        scrolled
+          ? 'bg-white/95 backdrop-blur-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border-b border-slate-200/80'
+          : 'bg-white/90 backdrop-blur-lg'
+      }`}
     >
       <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-8">
-        <Logo />
+        {/* Left: Brand Logo */}
+        <Logo theme="light" />
 
-        <nav className="hidden items-center gap-8 lg:flex">
+        {/* Center: Main Navigation */}
+        <nav className="hidden items-center gap-7 lg:flex">
           {links.map((link) => (
             <a
-              key={link.href}
+              key={link.label}
               href={link.href}
-              className="text-[13px] font-medium text-subtle transition-colors hover:text-ink"
+              className="text-[13.5px] font-medium text-slate-600 transition-colors hover:text-slate-950"
             >
               {link.label}
             </a>
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2.5 lg:flex">
+        {/* Right: Actions */}
+        <div className="hidden items-center gap-3 lg:flex">
           <Link
             to="/login"
-            className="inline-flex h-9 items-center rounded-lg px-4 text-[13px] font-semibold text-subtle transition hover:bg-white/5 hover:text-ink"
+            className="inline-flex h-9 items-center rounded-full px-4 text-[13.5px] font-medium text-slate-600 transition hover:text-slate-950"
           >
-            Log in
+            Sign In
           </Link>
-          <Link to="/signup" className={buttonStyles({ size: 'sm', className: 'btn-shine' })}>
-            Get Started <ArrowRight className="h-3.5 w-3.5" />
+          <Link
+            to="/signup"
+            className="inline-flex h-9.5 items-center justify-center rounded-full bg-slate-950 px-5 text-[13.5px] font-semibold text-white shadow-xs transition-all hover:bg-slate-800 hover:shadow-md active:scale-[0.98]"
+          >
+            Get Started
           </Link>
         </div>
 
+        {/* Mobile Hamburger Toggle */}
         <button
           type="button"
           aria-label={open ? 'Close menu' : 'Open menu'}
           aria-expanded={open}
           onClick={() => setOpen((value) => !value)}
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-white/[0.03] text-ink transition hover:border-brandlight/40 lg:hidden"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 lg:hidden"
         >
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          {open ? <LuX className="h-5 w-5" /> : <LuMenu className="h-5 w-5" />}
         </button>
       </div>
 
+      {/* Mobile Drawer */}
       <AnimatePresence>
         {open ? (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            className="overflow-hidden border-t border-line bg-surface/95 backdrop-blur-xl lg:hidden"
+            transition={{ duration: 0.22 }}
+            className="overflow-hidden border-t border-slate-100 bg-white/95 backdrop-blur-xl lg:hidden"
           >
-            <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-5 py-5 sm:px-8">
+            <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-5 py-4 sm:px-8">
               {links.map((link) => (
                 <a
-                  key={link.href}
+                  key={link.label}
                   href={link.href}
                   onClick={() => setOpen(false)}
-                  className="rounded-lg px-3 py-2.5 text-sm font-medium text-subtle transition hover:bg-white/5 hover:text-ink"
+                  className="rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                 >
                   {link.label}
                 </a>
               ))}
-              <div className="mt-3 grid grid-cols-2 gap-2.5 border-t border-line pt-4">
+              <div className="mt-3 grid grid-cols-2 gap-2.5 border-t border-slate-100 pt-4">
                 <Link
                   to="/login"
-                  className="inline-flex h-11 items-center justify-center rounded-xl border border-line text-sm font-semibold text-ink transition hover:bg-white/5"
+                  className="inline-flex h-11 items-center justify-center rounded-full border border-slate-200 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                 >
-                  Log in
+                  Sign In
                 </Link>
                 <Link
                   to="/signup"
-                  className={buttonStyles({ size: 'md', className: 'btn-shine' })}
+                  className="inline-flex h-11 items-center justify-center rounded-full bg-slate-950 text-sm font-semibold text-white shadow-xs transition hover:bg-slate-800"
                 >
                   Get Started
                 </Link>

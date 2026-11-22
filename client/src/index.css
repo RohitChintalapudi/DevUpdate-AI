@@ -44,6 +44,24 @@
     overflow-x: hidden;
   }
 
+  /* Hide visible scrollbars everywhere without disabling scrolling. */
+  html,
+  body,
+  #root,
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  *::-webkit-scrollbar,
+  *::-webkit-scrollbar-thumb,
+  *::-webkit-scrollbar-track {
+    display: none;
+    width: 0;
+    height: 0;
+    background: transparent;
+  }
+
   #root {
     min-height: 100vh;
     isolation: isolate;
@@ -73,6 +91,16 @@
   *:focus-visible {
     outline: 2px solid var(--color-brandlight);
     outline-offset: 3px;
+  }
+
+  /* react-icons/lu uses currentColor strokes. A slightly lighter, rounded
+     stroke keeps navigation, actions and status icons visually consistent. */
+  svg[stroke='currentColor'] {
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    shape-rendering: geometricPrecision;
+    transition: color 180ms ease, opacity 180ms ease;
   }
 }
 
@@ -176,25 +204,7 @@
     animation: shimmer 1.6s infinite linear;
   }
 
-  /* ---------- Scrollbars ---------- */
-  .scrollbar-slim {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
-  }
-
-  .scrollbar-slim::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-
-  .scrollbar-slim::-webkit-scrollbar-thumb {
-    background: rgba(148, 163, 184, 0.25);
-    border-radius: 99px;
-  }
-
-  .scrollbar-slim::-webkit-scrollbar-track {
-    background: transparent;
-  }
+  /* Scrollbars are hidden globally in the base layer; scrolling still works. */
 }
 
 @keyframes shimmer {

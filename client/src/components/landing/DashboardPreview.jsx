@@ -1,149 +1,237 @@
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
-  Activity,
-  ArrowUpRight,
-  Boxes,
-  CircleDot,
-  GitBranch,
-  Package,
-  ShieldAlert,
-  Sparkles,
-} from 'lucide-react'
-import DemoLabel from '../common/DemoLabel'
+  LuActivity,
+  LuArrowUpRight,
+  LuChevronRight,
+  LuGitBranch,
+  LuPackage,
+  LuShieldAlert,
+  LuSparkles,
+} from 'react-icons/lu'
+import { Link } from 'react-router-dom'
 
-const stats = [
-  { label: 'Repositories', value: '04', icon: GitBranch, tone: 'text-brandlight' },
-  { label: 'Dependencies', value: '128', icon: Package, tone: 'text-accent' },
-  { label: 'Updates', value: '16', icon: ArrowUpRight, tone: 'text-warning' },
-  { label: 'Security', value: '03', icon: ShieldAlert, tone: 'text-danger' },
+const tabs = [
+  { id: 'intelligence', label: 'Update Intelligence' },
+  { id: 'compatibility', label: 'AI Risk Analysis' },
+  { id: 'security', label: 'CVE Advisories' },
+  { id: 'changelogs', label: 'Synthesized Changelogs' },
 ]
 
-const bars = [38, 62, 45, 78, 55, 88, 68, 95, 72, 84, 60, 92]
-const activity = [
-  { icon: ArrowUpRight, color: 'text-brandlight', title: 'React 18.2.0 → 19.0.0', repo: 'acme-dashboard' },
-  { icon: Activity, color: 'text-accent', title: 'Express version reviewed', repo: 'payments-api' },
-  { icon: ShieldAlert, color: 'text-danger', title: 'Security advisory detected', repo: 'acme-dashboard' },
+const sampleDependencies = [
+  {
+    name: 'react',
+    current: '18.3.1',
+    latest: '19.0.0',
+    risk: 'Low Risk',
+    riskColor: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
+    summary: 'React 19 Server Components support; zero breaking changes in client hooks.',
+    time: '2h ago',
+  },
+  {
+    name: 'fastify',
+    current: '4.28.1',
+    latest: '5.1.2',
+    risk: 'Automated PR Ready',
+    riskColor: 'bg-sky-50 text-sky-700 border-sky-200/80',
+    summary: 'Routing performance improved by 14%; schema validator upgrade verified.',
+    time: '4h ago',
+  },
+  {
+    name: 'lodash',
+    current: '4.17.20',
+    latest: '4.17.21',
+    risk: 'CVE Patch',
+    riskColor: 'bg-amber-50 text-amber-700 border-amber-200/80',
+    summary: 'Fixes Prototype Pollution vulnerability (CVE-2021-23337). Immediate update recommended.',
+    time: 'Yesterday',
+  },
+  {
+    name: 'prisma',
+    current: '5.19.0',
+    latest: '6.0.0',
+    risk: 'Major Version',
+    riskColor: 'bg-purple-50 text-purple-700 border-purple-200/80',
+    summary: 'New schema engine; review database connection pool configuration before deploy.',
+    time: '2d ago',
+  },
 ]
 
 export default function DashboardPreview() {
+  const [activeTab, setActiveTab] = useState('intelligence')
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 40, scale: 0.97 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.9, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
-      className="relative mx-auto mt-14 max-w-5xl sm:mt-16"
-    >
-      <div className="pointer-events-none absolute -inset-x-16 -top-10 bottom-0 rounded-full bg-brand/20 blur-[100px]" />
-      <div className="relative overflow-hidden rounded-2xl border border-white/12 bg-[#0D1220]/95 shadow-[0_50px_120px_-40px_rgba(76,29,149,0.65)] backdrop-blur-xl">
-        {/* window bar */}
-        <div className="flex h-11 items-center gap-2 border-b border-line bg-white/[0.02] px-4">
-          <span className="h-2.5 w-2.5 rounded-full bg-[#FB7185]/70" />
-          <span className="h-2.5 w-2.5 rounded-full bg-[#FBBF24]/70" />
-          <span className="h-2.5 w-2.5 rounded-full bg-[#34D399]/70" />
-          <div className="mx-auto hidden items-center gap-1.5 rounded-md border border-line bg-canvas/60 px-3 py-1 text-[10px] text-muted sm:flex">
-            <span className="h-1.5 w-1.5 rounded-full bg-success" /> app.devupdate.ai/dashboard
-          </div>
-          <div className="ml-auto"><DemoLabel label="Illustrative preview" /></div>
+    <section className="relative overflow-hidden bg-slate-50/60 py-24 sm:py-32">
+      {/* Background Soft Glow */}
+      <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[500px] w-[800px] rounded-full bg-sky-200/20 blur-3xl" />
+
+      <div className="relative mx-auto max-w-7xl px-5 sm:px-8">
+        <div className="mx-auto max-w-2xl text-center mb-14">
+          <span className="inline-block rounded-full border border-sky-200/70 bg-sky-50 px-3.5 py-1 text-[11px] font-bold tracking-[0.16em] uppercase text-sky-600">
+            Live Workspace Preview
+          </span>
+          <h2 className="mt-3 text-[32px] font-bold tracking-[-0.035em] text-slate-950 sm:text-[42px]">
+            Your Dependency Intelligence Command Center.
+          </h2>
+          <p className="mt-3.5 text-[15px] leading-relaxed text-slate-500">
+            Experience real-time repository scanning, automated CVE triage, and AI-synthesized
+            upgrade roadmaps designed for production teams.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-[150px_1fr]">
-          {/* mini sidebar */}
-          <div className="hidden border-r border-line bg-white/[0.015] p-3 sm:block">
-            <div className="mb-5 flex items-center gap-2 px-1.5 pt-1">
-              <span className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-brand to-accent">
-                <Boxes className="h-3.5 w-3.5 text-white" />
-              </span>
-              <span className="text-[10px] font-bold text-ink">DevUpdate AI</span>
+        {/* Clean Light Browser Frame */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: '-60px' }}
+          transition={{ duration: 0.7 }}
+          className="mx-auto max-w-5xl rounded-3xl border border-slate-200/90 bg-white shadow-[0_25px_70px_-15px_rgba(0,0,0,0.08)] overflow-hidden"
+        >
+          {/* Top Browser Bar */}
+          <div className="flex h-12 items-center justify-between border-b border-slate-100 bg-slate-50/80 px-5">
+            <div className="flex items-center gap-2">
+              <span className="h-3 w-3 rounded-full bg-red-400" />
+              <span className="h-3 w-3 rounded-full bg-amber-400" />
+              <span className="h-3 w-3 rounded-full bg-emerald-400" />
             </div>
-            {[
-              { icon: CircleDot, label: 'Dashboard', active: true },
-              { icon: GitBranch, label: 'Repositories' },
-              { icon: Package, label: 'Dependencies' },
-              { icon: Sparkles, label: 'AI Insights' },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className={`mb-1 flex items-center gap-2 rounded-md px-2 py-2 text-[10px] ${
-                  item.active ? 'bg-brand/15 text-brandlight' : 'text-muted'
-                }`}
+
+            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1 text-xs text-slate-500 shadow-2xs">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <span className="font-mono text-[11px]">app.devupdate.ai/dashboard/overview</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Link
+                to="/signup"
+                className="inline-flex items-center gap-1 rounded-full bg-slate-950 px-3 py-1 text-[11px] font-semibold text-white shadow-2xs hover:bg-slate-800 transition"
               >
-                <item.icon className="h-3.5 w-3.5" />
-                <span className="truncate">{item.label}</span>
-              </div>
-            ))}
+                Launch App <LuArrowUpRight className="h-3 w-3" />
+              </Link>
+            </div>
           </div>
 
-          {/* preview content */}
-          <div className="p-4 sm:p-6">
-            <div className="mb-5 flex items-end justify-between">
-              <div>
-                <p className="text-[10px] font-semibold tracking-wider text-muted uppercase">Workspace overview</p>
-                <p className="mt-1 text-base font-bold tracking-tight text-ink sm:text-lg">Welcome back, developer</p>
-              </div>
-              <span className="hidden rounded-md border border-line px-2 py-1 text-[10px] text-muted sm:block">
-                November 2026
+          {/* Sub Navigation Bar inside Preview */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-3.5 bg-white">
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-950 text-white">
+                <LuPackage className="h-4 w-4" />
+              </span>
+              <span className="text-sm font-bold text-slate-900">acme-frontend-core</span>
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10.5px] font-medium text-slate-600">
+                main branch
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-              {stats.map((stat, index) => (
-                <motion.div
-                  key={stat.label}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: 0.6 + index * 0.08 }}
-                  className="rounded-xl border border-line bg-card/80 p-3"
+            <div className="flex items-center gap-1.5 overflow-x-auto">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`rounded-full px-3.5 py-1 text-xs font-medium transition ${
+                    activeTab === tab.id
+                      ? 'bg-slate-950 text-white shadow-2xs'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
                 >
-                  <stat.icon className={`h-4 w-4 ${stat.tone}`} />
-                  <p className="mt-3 text-xl font-bold tracking-tight text-ink sm:text-2xl">{stat.value}</p>
-                  <p className="mt-0.5 truncate text-[9px] text-muted">{stat.label}</p>
-                </motion.div>
+                  {tab.label}
+                </button>
               ))}
             </div>
+          </div>
 
-            <div className="mt-4 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-              <div className="rounded-xl border border-line bg-card/60 p-4">
-                <div className="mb-4 flex items-center justify-between">
-                  <p className="text-[11px] font-semibold text-ink">Update activity</p>
-                  <p className="text-[9px] text-muted">Sample · last 12 weeks</p>
-                </div>
-                <div className="flex h-24 items-end gap-1.5">
-                  {bars.map((height, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ height: 0 }}
-                      animate={{ height: `${height}%` }}
-                      transition={{ duration: 0.7, delay: 0.8 + index * 0.04, ease: 'easeOut' }}
-                      className={`flex-1 rounded-t-[3px] ${
-                        index % 3 === 0
-                          ? 'bg-gradient-to-t from-brand/30 to-brandlight/90'
-                          : 'bg-gradient-to-t from-accent/10 to-accent/40'
-                      }`}
-                    />
-                  ))}
-                </div>
+          {/* Metric KPI Cards */}
+          <div className="grid grid-cols-2 gap-3 p-6 sm:grid-cols-4 bg-slate-50/40">
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs">
+              <div className="flex items-center justify-between text-slate-500">
+                <span className="text-[11px] font-semibold uppercase tracking-wider">Repositories</span>
+                <LuGitBranch className="h-4 w-4 text-slate-700" />
               </div>
+              <p className="mt-2 text-2xl font-bold tracking-tight text-slate-950">4</p>
+              <p className="mt-0.5 text-[11px] text-emerald-600 font-medium">All manifests synchronized</p>
+            </div>
 
-              <div className="rounded-xl border border-line bg-card/60 p-4">
-                <p className="mb-3 text-[11px] font-semibold text-ink">Recent activity</p>
-                <div className="space-y-3">
-                  {activity.map((item) => (
-                    <div key={item.title} className="flex items-center gap-2.5">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.04]">
-                        <item.icon className={`h-3.5 w-3.5 ${item.color}`} />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="truncate text-[10px] font-medium text-subtle">{item.title}</p>
-                        <p className="truncate text-[9px] text-muted">{item.repo}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs">
+              <div className="flex items-center justify-between text-slate-500">
+                <span className="text-[11px] font-semibold uppercase tracking-wider">Monitored Packages</span>
+                <LuPackage className="h-4 w-4 text-sky-600" />
               </div>
+              <p className="mt-2 text-2xl font-bold tracking-tight text-slate-950">148</p>
+              <p className="mt-0.5 text-[11px] text-slate-500">npm, PyPI & Cargo</p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs">
+              <div className="flex items-center justify-between text-slate-500">
+                <span className="text-[11px] font-semibold uppercase tracking-wider">Updates Available</span>
+                <LuActivity className="h-4 w-4 text-amber-500" />
+              </div>
+              <p className="mt-2 text-2xl font-bold tracking-tight text-slate-950">16</p>
+              <p className="mt-0.5 text-[11px] text-amber-600 font-medium">12 safe to upgrade today</p>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs">
+              <div className="flex items-center justify-between text-slate-500">
+                <span className="text-[11px] font-semibold uppercase tracking-wider">Security Score</span>
+                <LuShieldAlert className="h-4 w-4 text-emerald-600" />
+              </div>
+              <p className="mt-2 text-2xl font-bold tracking-tight text-emerald-600">99.4%</p>
+              <p className="mt-0.5 text-[11px] text-slate-500">0 critical CVE vulnerabilities</p>
             </div>
           </div>
-        </div>
+
+          {/* Interactive Intelligence Feed */}
+          <div className="p-6 bg-white">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Recent Upgrade Intelligence</h3>
+                <p className="text-xs text-slate-500">Real-time analysis stream across connected dependencies</p>
+              </div>
+              <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                <LuSparkles className="h-3.5 w-3.5 text-sky-600" /> AI confidence: 99%
+              </span>
+            </div>
+
+            <div className="divide-y divide-slate-100 rounded-2xl border border-slate-100 overflow-hidden">
+              {sampleDependencies.map((dep) => (
+                <div
+                  key={dep.name}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 hover:bg-slate-50/80 transition-colors"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-xs font-mono font-bold text-slate-700">
+                      {dep.name.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-slate-900">{dep.name}</span>
+                        <span className="text-xs font-mono text-slate-400">
+                          {dep.current} → <span className="font-semibold text-slate-800">{dep.latest}</span>
+                        </span>
+                        <span
+                          className={`rounded-full border px-2 py-0.5 text-[10.5px] font-semibold ${dep.riskColor}`}
+                        >
+                          {dep.risk}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-600 leading-relaxed">{dep.summary}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
+                    <span className="text-[11px] text-slate-400">{dep.time}</span>
+                    <Link
+                      to="/signup"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-sky-600 hover:text-sky-700 hover:underline"
+                    >
+                      Inspect <LuChevronRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
       </div>
-    </motion.div>
+    </section>
   )
 }

@@ -1,11 +1,4 @@
-import {
-  ArrowUpCircle,
-  CalendarDays,
-  GitBranch,
-  Package,
-  ShieldAlert,
-  Sparkles,
-} from 'lucide-react'
+import { LuCalendarDays, LuCircleArrowUp, LuGitBranch, LuPackage, LuShieldAlert, LuSparkles } from 'react-icons/lu'
 import { motion } from 'framer-motion'
 import Card from '../../components/common/Card'
 import DemoLabel from '../../components/common/DemoLabel'
@@ -16,7 +9,7 @@ import { HealthChart, UpdateActivityChart } from '../../components/dashboard/Cha
 import ActivityTimeline from '../../components/dashboard/ActivityTimeline'
 import AIInsightCard from '../../components/dashboard/AIInsightCard'
 
-const iconMap = { GitBranch, Package, ArrowUpCircle, ShieldAlert }
+const iconMap = { LuGitBranch, LuPackage, LuCircleArrowUp, LuShieldAlert }
 
 export default function Overview() {
   const { user } = useAuth()
@@ -50,7 +43,7 @@ export default function Overview() {
             </p>
           </div>
           <div className="inline-flex w-fit items-center gap-2 rounded-xl border border-line bg-canvas/50 px-3.5 py-2.5 text-[12px] text-subtle">
-            <CalendarDays className="h-4 w-4 text-brandlight" /> {today}
+            <LuCalendarDays className="h-4 w-4 text-brandlight" /> {today}
           </div>
         </div>
       </div>
@@ -98,7 +91,7 @@ export default function Overview() {
               <p className="label-caps">Timeline</p>
               <h2 className="mt-1.5 text-base font-semibold text-ink">Recent activity</h2>
             </div>
-            <Sparkles className="h-4 w-4 text-brandlight" />
+            <LuSparkles className="h-4 w-4 text-brandlight" />
           </div>
           <ActivityTimeline />
         </Card>

@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { ArrowUpRight, BookOpen, Github } from 'lucide-react'
 import Logo from '../common/Logo'
 import Modal from '../common/Modal'
 import Button from '../common/Button'
@@ -10,50 +9,93 @@ const columns = [
     links: [
       { label: 'Features', href: '#features' },
       { label: 'How It Works', href: '#how-it-works' },
-      { label: 'Benefits', href: '#benefits' },
-      { label: 'About', href: '#about' },
+      { label: 'AI Recommendations', href: '#why' },
+      { label: 'Security Intelligence', href: '#security' },
+      { label: 'Documentation', to: '/login' },
     ],
   },
   {
-    title: 'Platform',
+    title: 'Resources',
     links: [
-      { label: 'Dashboard preview', to: '/signup' },
-      { label: 'AI recommendations', to: '/signup' },
-      { label: 'Memento memory', to: '/signup' },
+      { label: 'Getting Started', to: '/signup' },
+      { label: 'GitHub Integration', href: '#technology' },
+      { label: 'Supported Ecosystems', href: '#ecosystems' },
+      { label: 'FAQ', href: '#faq' },
+      { label: 'Contact', href: 'mailto:support@devupdate.ai' },
+    ],
+  },
+  {
+    title: 'Technologies',
+    links: [
+      { label: 'GitHub API', href: '#technology' },
+      { label: 'Google Gemini', href: '#technology' },
+      { label: 'LangChain & LangGraph', href: '#technology' },
+      { label: 'Firecrawl Research', href: '#technology' },
+      { label: 'Memento Memory', href: '#technology' },
+    ],
+  },
+  {
+    title: 'Legal',
+    links: [
+      { label: 'Privacy Policy', action: 'Privacy Policy' },
+      { label: 'Terms of Service', action: 'Terms of Service' },
+      { label: 'Security', href: '#security' },
     ],
   },
 ]
 
 export default function Footer() {
-  const [comingSoon, setComingSoon] = useState('')
+  const [modalTitle, setModalTitle] = useState('')
 
   return (
-    <footer className="relative border-t border-line bg-surface/40">
-      <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8">
-        <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
+    <footer className="relative border-t border-slate-200/80 bg-[#F1F5F9]">
+      <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8">
+        <div className="grid gap-10 md:grid-cols-[1.6fr_1fr_1fr_1fr_1fr]">
+          {/* Brand Info */}
           <div>
-            <Logo />
-            <p className="mt-4 max-w-xs text-[13px] leading-relaxed text-subtle">
-              AI-powered dependency intelligence for developers. Monitor updates, understand
-              release notes and make confident upgrade decisions.
+            <Logo theme="light" />
+            <p className="mt-3 text-xs font-bold text-slate-800">
+              Intelligent Dependency Management. Powered by AI.
             </p>
-            <span className="mt-4 inline-flex rounded-full border border-line bg-white/[0.02] px-2.5 py-1 text-[10px] text-muted">
-              Phase 1 · Foundation preview
-            </span>
+            <p className="mt-2 text-xs leading-relaxed text-slate-500 max-w-xs">
+              Understand your dependencies. Research what changed. Upgrade with confidence.
+            </p>
+
+            <div className="mt-6 flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full bg-emerald-500" />
+              <span className="text-xs font-semibold text-slate-600">All systems operational</span>
+            </div>
           </div>
 
+          {/* Columns */}
           {columns.map((column) => (
             <div key={column.title}>
-              <p className="label-caps mb-4">{column.title}</p>
-              <ul className="space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                {column.title}
+              </p>
+              <ul className="mt-4 space-y-2.5">
                 {column.links.map((link) => (
                   <li key={link.label}>
                     {link.href ? (
-                      <a href={link.href} className="text-[13px] text-subtle transition hover:text-ink">
+                      <a
+                        href={link.href}
+                        className="text-[13px] font-medium text-slate-500 transition hover:text-slate-950"
+                      >
                         {link.label}
                       </a>
+                    ) : link.action ? (
+                      <button
+                        type="button"
+                        onClick={() => setModalTitle(link.action)}
+                        className="text-[13px] font-medium text-slate-500 transition hover:text-slate-950"
+                      >
+                        {link.label}
+                      </button>
                     ) : (
-                      <a href={link.to} className="text-[13px] text-subtle transition hover:text-ink">
+                      <a
+                        href={link.to}
+                        className="text-[13px] font-medium text-slate-500 transition hover:text-slate-950"
+                      >
                         {link.label}
                       </a>
                     )}
@@ -62,56 +104,24 @@ export default function Footer() {
               </ul>
             </div>
           ))}
-
-          <div>
-            <p className="label-caps mb-4">Resources</p>
-            <ul className="space-y-3">
-              <li>
-                <button
-                  type="button"
-                  onClick={() => setComingSoon('Documentation')}
-                  className="inline-flex items-center gap-1.5 text-[13px] text-subtle transition hover:text-ink"
-                >
-                  <BookOpen className="h-3.5 w-3.5" /> Documentation
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => setComingSoon('GitHub organization')}
-                  className="inline-flex items-center gap-1.5 text-[13px] text-subtle transition hover:text-ink"
-                >
-                  <Github className="h-3.5 w-3.5" /> GitHub
-                </button>
-              </li>
-              <li>
-                <a href="#features" className="text-[13px] text-subtle transition hover:text-ink">
-                  Feature roadmap
-                </a>
-              </li>
-            </ul>
-          </div>
         </div>
 
-        <div className="mt-12 flex flex-col gap-3 border-t border-line pt-6 text-[12px] text-muted sm:flex-row sm:items-center sm:justify-between">
+        {/* Bottom Bar */}
+        <div className="mt-14 flex flex-col gap-3 border-t border-slate-200/60 pt-7 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <p>© 2026 DevUpdate AI. All rights reserved.</p>
-          <p className="flex items-center gap-1.5">
-            Built for developers, with clarity in mind. <ArrowUpRight className="h-3.5 w-3.5" />
-          </p>
+          <p className="font-medium text-slate-700">Built for developers. Driven by intelligence.</p>
         </div>
       </div>
 
       <Modal
-        open={Boolean(comingSoon)}
-        onClose={() => setComingSoon('')}
-        title={`${comingSoon} — Coming Soon`}
-        description="This resource is planned for a later phase of DevUpdate AI."
-        footer={<Button onClick={() => setComingSoon('')}>Got it</Button>}
+        open={Boolean(modalTitle)}
+        onClose={() => setModalTitle('')}
+        title={modalTitle}
+        description="This legal documentation is strictly enforced across all platform tiers and API consumers."
       >
-        <p className="text-sm leading-relaxed text-subtle">
-          Phase 1 focuses on the website foundation and authentication. Documentation and public
-          repository links will be added as the platform grows.
-        </p>
+        <div className="mt-4 flex justify-end">
+          <Button onClick={() => setModalTitle('')}>Close</Button>
+        </div>
       </Modal>
     </footer>
   )

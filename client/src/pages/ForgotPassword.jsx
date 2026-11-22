@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { ArrowLeft, Clock3, Info, Mail, Send } from 'lucide-react'
+import { LuArrowLeft, LuClock3, LuInfo, LuMail, LuSend } from 'react-icons/lu'
 import { Link } from 'react-router-dom'
 import AuthLayout from '../layouts/AuthLayout'
-import Button from '../components/common/Button'
 import Input from '../components/common/Input'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -28,78 +27,75 @@ export default function ForgotPassword() {
 
   return (
     <AuthLayout
-      title="Reset Your Password."
-      description="A calm, secure way back into your workspace."
+      title="Reset Password"
+      description="Enter your email to receive recovery instructions."
       badge="Account recovery"
       footer={
-        <p className="text-[13px] text-muted">
-          Remembered it?{' '}
-          <Link to="/login" className="font-semibold text-brandlight hover:text-ink">
-            Back to login
+        <p className="text-[11.5px] text-slate-500">
+          Remember your password?{' '}
+          <Link to="/login" className="font-semibold text-sky-600 hover:text-sky-700">
+            Back to sign in
           </Link>
         </p>
       }
     >
-      <div className="rounded-2xl border border-line bg-card/70 p-6 shadow-[0_30px_70px_-40px_rgba(0,0,0,0.9)] backdrop-blur-sm sm:p-8">
-        <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl border border-brand/25 bg-brand/10 text-brandlight">
-          <Mail className="h-5 w-5" />
-        </div>
-        <h2 className="text-xl font-bold tracking-[-0.03em] text-ink">Forgot your password?</h2>
-        <p className="mt-2 text-[13px] leading-relaxed text-subtle">
-          Enter the email address associated with your account. Password recovery is being prepared
-          for a future phase.
-        </p>
+      <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-2xl border border-sky-100 bg-sky-50 text-sky-600 shadow-2xs mx-auto">
+        <LuMail className="h-4 w-4" />
+      </div>
 
-        {submitted ? (
-          <div
-            role="status"
-            className="mt-6 rounded-xl border border-warning/25 bg-warning/[0.06] p-4"
-          >
-            <div className="flex items-start gap-2.5">
-              <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-              <div>
-                <p className="text-[13px] font-semibold text-warning">Recovery is coming soon</p>
-                <p className="mt-1.5 text-[12px] leading-relaxed text-subtle">
-                  No email has been sent. For now, you can return to the login page or create a new
-                  workspace.
-                </p>
-              </div>
+      {submitted ? (
+        <div
+          role="status"
+          className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-3"
+        >
+          <div className="flex items-start gap-2">
+            <LuClock3 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+            <div>
+              <p className="text-xs font-bold text-amber-900">Recovery in preparation</p>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-amber-700">
+                Password recovery email delivery is being prepared for production. You can return to login or create a new workspace.
+              </p>
             </div>
           </div>
-        ) : null}
-
-        <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-5">
-          <Input
-            label="Email address"
-            type="email"
-            autoComplete="email"
-            placeholder="you@company.com"
-            icon={Mail}
-            value={email}
-            onChange={(event) => {
-              setEmail(event.target.value)
-              if (error) setError('')
-            }}
-            error={error}
-          />
-          <Button type="submit" fullWidth size="lg" className="btn-shine">
-            <Send className="h-4 w-4" /> Send Reset Link
-          </Button>
-        </form>
-
-        <div className="mt-6 flex items-start gap-2.5 rounded-xl border border-line bg-white/[0.02] px-3.5 py-3">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
-          <p className="text-[11px] leading-relaxed text-muted">
-            This page intentionally does not pretend to send an email. The reset workflow will be
-            added with the email delivery service in a later phase.
-          </p>
         </div>
+      ) : null}
 
+      <form onSubmit={handleSubmit} noValidate className="space-y-3">
+        <Input
+          theme="light"
+          label="Email address"
+          type="email"
+          autoComplete="email"
+          placeholder="you@company.com"
+          icon={LuMail}
+          value={email}
+          onChange={(event) => {
+            setEmail(event.target.value)
+            if (error) setError('')
+          }}
+          error={error}
+        />
+        <button
+          type="submit"
+          className="inline-flex h-10.5 w-full items-center justify-center gap-2 rounded-full bg-slate-950 px-5 text-[13.5px] font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0"
+        >
+          <LuSend className="h-3.5 w-3.5" /> Send Reset Link
+        </button>
+      </form>
+
+      <div className="mt-4 flex items-start gap-2 rounded-2xl border border-slate-100 bg-slate-50 p-2.5">
+        <LuInfo className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+        <p className="text-[10.5px] leading-relaxed text-slate-500">
+          Reset tokens expire 1 hour after generation and can only be used once.
+        </p>
+      </div>
+
+      <div className="mt-4 text-center">
         <Link
           to="/login"
-          className="mt-6 inline-flex items-center gap-2 text-[13px] font-medium text-subtle transition hover:text-ink"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 transition hover:text-slate-950"
         >
-          <ArrowLeft className="h-4 w-4" /> Back to login
+          <LuArrowLeft className="h-3 w-3" /> Back to sign in
         </Link>
       </div>
     </AuthLayout>

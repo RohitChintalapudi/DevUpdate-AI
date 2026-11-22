@@ -1,15 +1,15 @@
 import { useState } from 'react'
-import { AlertCircle, ArrowRight, Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react'
+import { LuArrowRight, LuCircleAlert, LuEye, LuEyeOff, LuLockKeyhole, LuMail } from 'react-icons/lu'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import AuthLayout from '../layouts/AuthLayout'
-import Button from '../components/common/Button'
 import Input from '../components/common/Input'
+import LoadingSpinner from '../components/common/LoadingSpinner'
 import { useAuth } from '../context/AuthContext'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function Login() {
-  const { login, isAuthenticated, loading: authLoading } = useAuth()
+  const { login, isAuthenticated, loading: authLoading, getErrorMessage } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [form, setForm] = useState({ email: '', password: '', remember: false })
@@ -41,9 +41,7 @@ export default function Login() {
       await login({ email: form.email.trim(), password: form.password, remember: form.remember })
       navigate(location.state?.from || '/dashboard', { replace: true })
     } catch (error) {
-      setServerError(
-        error?.response?.data?.message || 'Unable to sign in. Check your credentials and try again.',
-      )
+      setServerError(getErrorMessage(error, 'Unable to sign in. Check your credentials and try again.'))
     } finally {
       setSubmitting(false)
     }
@@ -51,96 +49,97 @@ export default function Login() {
 
   return (
     <AuthLayout
-      title="Welcome Back."
-      description="Your projects. Your dependencies. Your intelligence."
-      badge="Secure workspace access"
+      title="Welcome Back"
+      description="Enter your email and password to access your dashboard."
+      badge="Secure access"
       footer={
-        <p className="text-[13px] text-muted">
+        <p className="text-[11.5px] text-slate-500">
           New to DevUpdate AI?{' '}
-          <Link to="/signup" className="font-semibold text-brandlight hover:text-ink">
+          <Link to="/signup" className="font-semibold text-sky-600 hover:text-sky-700">
             Create a workspace
           </Link>
         </p>
       }
     >
-      <div className="rounded-2xl border border-line bg-card/70 p-6 shadow-[0_30px_70px_-40px_rgba(0,0,0,0.9)] backdrop-blur-sm sm:p-8">
-        <div className="mb-7">
-          <h2 className="text-xl font-bold tracking-[-0.03em] text-ink">Sign in to your account</h2>
-          <p className="mt-1.5 text-[13px] text-subtle">Enter your details to continue.</p>
+      {serverError ? (
+        <div
+          role="alert"
+          className="mb-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[11.5px] text-rose-700"
+        >
+          <LuCircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>{serverError}</span>
+        </div>
+      ) : null}
+
+      <form onSubmit={handleSubmit} noValidate className="space-y-3">
+        <Input
+          theme="light"
+          label="Email address"
+          type="email"
+          autoComplete="email"
+          placeholder="you@company.com"
+          icon={LuMail}
+          value={form.email}
+          onChange={(event) => setForm({ ...form, email: event.target.value })}
+          error={errors.email}
+        />
+
+        <div>
+          <Input
+            theme="light"
+            label="Password"
+            type={showPassword ? 'text' : 'password'}
+            autoComplete="current-password"
+            placeholder="Enter your password"
+            icon={LuLockKeyhole}
+            value={form.password}
+            onChange={(event) => setForm({ ...form, password: event.target.value })}
+            error={errors.password}
+            rightElement={
+              <button
+                type="button"
+                onClick={() => setShowPassword((value) => !value)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              >
+                {showPassword ? <LuEyeOff className="h-3.5 w-3.5" /> : <LuEye className="h-3.5 w-3.5" />}
+              </button>
+            }
+          />
         </div>
 
-        {serverError ? (
-          <div
-            role="alert"
-            className="mb-5 flex items-start gap-2.5 rounded-xl border border-danger/25 bg-danger/[0.07] px-3.5 py-3 text-[13px] text-danger"
-          >
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{serverError}</span>
-          </div>
-        ) : null}
-
-        <form onSubmit={handleSubmit} noValidate className="space-y-5">
-          <Input
-            label="Email address"
-            type="email"
-            autoComplete="email"
-            placeholder="you@company.com"
-            icon={Mail}
-            value={form.email}
-            onChange={(event) => setForm({ ...form, email: event.target.value })}
-            error={errors.email}
-          />
-
-          <div>
-            <Input
-              label="Password"
-              type={showPassword ? 'text' : 'password'}
-              autoComplete="current-password"
-              placeholder="Enter your password"
-              icon={LockKeyhole}
-              value={form.password}
-              onChange={(event) => setForm({ ...form, password: event.target.value })}
-              error={errors.password}
-              rightElement={
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((value) => !value)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition hover:bg-white/5 hover:text-ink"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              }
+        <div className="flex items-center justify-between gap-3 pt-0.5">
+          <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-600">
+            <input
+              type="checkbox"
+              checked={form.remember}
+              onChange={(event) => setForm({ ...form, remember: event.target.checked })}
+              className="h-3.5 w-3.5 rounded border-slate-300 text-slate-950 focus:ring-slate-950/20"
             />
-          </div>
+            Remember me
+          </label>
+          <Link
+            to="/forgot-password"
+            className="text-xs font-semibold text-sky-600 transition hover:text-sky-700"
+          >
+            Forgot password?
+          </Link>
+        </div>
 
-          <div className="flex items-center justify-between gap-3">
-            <label className="flex cursor-pointer items-center gap-2.5 text-[13px] text-subtle">
-              <input
-                type="checkbox"
-                checked={form.remember}
-                onChange={(event) => setForm({ ...form, remember: event.target.checked })}
-                className="h-4 w-4 rounded border-white/20 bg-canvas accent-brand"
-              />
-              Remember me
-            </label>
-            <Link
-              to="/forgot-password"
-              className="text-[13px] font-medium text-brandlight transition hover:text-ink"
-            >
-              Forgot password?
-            </Link>
-          </div>
-
-          <Button type="submit" fullWidth size="lg" loading={submitting} className="btn-shine">
-            Sign In <ArrowRight className="h-4 w-4" />
-          </Button>
-        </form>
-
-        <p className="mt-6 text-center text-[11px] leading-relaxed text-muted">
-          Protected by HTTP-only cookies, JWT sessions and rate limiting.
-        </p>
-      </div>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="mt-1 inline-flex h-10.5 w-full items-center justify-center gap-2 rounded-full bg-slate-950 px-5 text-[13.5px] font-semibold text-white shadow-sm transition-all hover:bg-slate-800 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50"
+        >
+          {submitting ? (
+            <LoadingSpinner size="sm" />
+          ) : (
+            <>
+              Sign In <LuArrowRight className="h-4 w-4" />
+            </>
+          )}
+        </button>
+      </form>
     </AuthLayout>
   )
 }

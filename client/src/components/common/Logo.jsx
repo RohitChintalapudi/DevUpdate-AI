@@ -1,33 +1,47 @@
 import { Link } from 'react-router-dom'
 
-export function LogoMark({ className = 'h-9 w-9' }) {
+export function LogoMark({ className = 'h-9 w-9', theme = 'dark' }) {
+  const isLight = theme === 'light'
+
   return (
     <span
-      className={`${className} relative inline-flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-accent shadow-[0_6px_20px_-6px_rgba(139,92,246,0.8)]`}
+      className={`${className} relative inline-flex shrink-0 items-center justify-center rounded-xl ${
+        isLight
+          ? 'bg-slate-950 shadow-[0_4px_12px_rgba(0,0,0,0.15)] text-white'
+          : 'bg-slate-900 border border-slate-800 shadow-[0_4px_12px_rgba(0,0,0,0.4)] text-white'
+      } transition-transform hover:scale-105`}
       aria-hidden="true"
     >
-      <svg viewBox="0 0 32 32" fill="none" className="h-[62%] w-[62%]">
-        <path
-          d="M8 8.5h7.2c3.3 0 4.4 2.2 4.4 4.6 0 2.5-1.4 4.6-4.7 4.6H12"
-          stroke="white"
-          strokeWidth="2.6"
-          strokeLinecap="round"
-        />
-        <path d="M8 8.5v15" stroke="white" strokeWidth="2.6" strokeLinecap="round" />
-        <circle cx="23.5" cy="8.5" r="2.6" fill="white" fillOpacity="0.95" />
-        <circle cx="8" cy="23.5" r="2.6" fill="white" fillOpacity="0.95" />
+      {/* Unified 4-lobed geometric dependency node clover symbol matching favicon */}
+      <svg viewBox="0 0 24 24" fill="currentColor" className="h-[58%] w-[58%]">
+        <circle cx="8" cy="8" r="3.2" fill="#FFFFFF" />
+        <circle cx="16" cy="8" r="3.2" fill="#FFFFFF" />
+        <circle cx="8" cy="16" r="3.2" fill="#FFFFFF" />
+        <circle cx="16" cy="16" r="3.2" fill="#FFFFFF" />
+        <circle cx="12" cy="12" r="1.8" fill="#38BDF8" />
       </svg>
     </span>
   )
 }
 
-export default function Logo({ compact = false, to = '/', className = '' }) {
+export default function Logo({ compact = false, to = '/', className = '', theme = 'dark' }) {
+  const isLight = theme === 'light'
+
   return (
     <Link to={to} className={`inline-flex items-center gap-2.5 group ${className}`}>
-      <LogoMark className={compact ? 'h-8 w-8' : 'h-9 w-9'} />
+      <LogoMark className={compact ? 'h-8 w-8' : 'h-8.5 w-8.5'} theme={theme} />
       {!compact ? (
-        <span className="text-[17px] font-bold tracking-[-0.03em] text-ink transition-colors group-hover:text-white">
-          DevUpdate <span className="text-gradient">AI</span>
+        <span
+          className={`text-[17px] font-bold tracking-[-0.03em] transition-colors ${
+            isLight
+              ? 'text-slate-950 group-hover:text-black'
+              : 'text-ink group-hover:text-white'
+          }`}
+        >
+          DevUpdate{' '}
+          <span className={isLight ? 'font-semibold text-slate-500' : 'text-sky-400 font-semibold'}>
+            AI
+          </span>
         </span>
       ) : null}
     </Link>

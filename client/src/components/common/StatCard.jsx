@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion'
-import { ArrowUpRight } from 'lucide-react'
-
+import { LuArrowUpRight } from 'react-icons/lu'
 const tones = {
   violet: { icon: 'text-brandlight', bg: 'bg-brand/12', ring: 'border-brand/20' },
   cyan: { icon: 'text-accent', bg: 'bg-accent/10', ring: 'border-accent/20' },
@@ -43,7 +42,7 @@ export default function StatCard({
         </div>
         {trend ? (
           <span className="inline-flex items-center gap-0.5 rounded-lg bg-success/10 px-2 py-1 text-[11px] font-semibold text-success">
-            <ArrowUpRight className="h-3 w-3" />
+            <LuArrowUpRight className="h-3 w-3" />
             {trend}
           </span>
         ) : null}

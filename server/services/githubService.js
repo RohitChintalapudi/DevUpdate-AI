@@ -1,5 +1,4 @@
 import { Octokit } from 'octokit'
-import jwt from 'jsonwebtoken'
 import { AppError } from '../utils/errors.js'
 import { sanitizeText, mapLimit, withTimeout } from '../utils/sanitize.js'
 import {
@@ -10,53 +9,40 @@ import {
   GITHUB_REQUEST_TIMEOUT_MS,
 } from '../constants/manifests.js'
 
-const tokenCache = new Map()
-
 function config() {
   return {
-    appId: process.env.GITHUB_APP_ID,
     clientId: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
-    privateKey: process.env.GITHUB_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    slug: process.env.GITHUB_APP_SLUG,
+    callbackUrl: process.env.GITHUB_CALLBACK_URL || 'http://localhost:5000/api/github/callback',
+    scopes: process.env.GITHUB_OAUTH_SCOPES || 'repo read:user user:email read:org',
   }
 }
 
 export function isGithubConfigured() {
-  const { appId, clientId, privateKey, slug } = config()
-  return Boolean(appId && clientId && privateKey && slug)
+  const { clientId, clientSecret } = config()
+  return Boolean(clientId && clientSecret)
 }
 
 export function assertGithubConfigured() {
   if (!isGithubConfigured()) {
     throw new AppError(
-      'GitHub integration is not configured. Set GITHUB_APP_ID, GITHUB_CLIENT_ID, GITHUB_PRIVATE_KEY and GITHUB_APP_SLUG on the server.',
+      'GitHub OAuth is not configured. Set GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET and GITHUB_CALLBACK_URL on the server.',
       503,
     )
   }
 }
 
-export function getInstallUrl(state) {
+export function getOAuthAuthorizeUrl(state) {
   assertGithubConfigured()
-  const { slug } = config()
-  return `https://github.com/apps/${encodeURIComponent(slug)}/installations/new?state=${encodeURIComponent(state)}`
-}
-
-function appJwt() {
-  const { appId, privateKey } = config()
-  if (!appId || !privateKey) throw new AppError('GitHub App credentials are missing.', 503)
-  return jwt.sign({}, privateKey, {
-    algorithm: 'RS256',
-    issuer: appId,
-    expiresIn: '9m',
+  const { clientId, callbackUrl, scopes } = config()
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: callbackUrl,
+    scope: scopes,
+    state,
+    allow_signup: 'true',
   })
-}
-
-function appOctokit() {
-  return new Octokit({
-    auth: appJwt(),
-    request: { timeout: GITHUB_REQUEST_TIMEOUT_MS },
-  })
+  return `https://github.com/login/oauth/authorize?${params.toString()}`
 }
 
 function translateGithubError(error) {
@@ -66,69 +52,96 @@ function translateGithubError(error) {
     if (remaining === '0' || /rate limit/i.test(error?.message || '')) {
       throw new AppError('GitHub API rate limit reached. Please try again later.', 429)
     }
-    throw new AppError('GitHub denied access. Check the App installation permissions.', 403)
+    throw new AppError('GitHub denied access. Check that your account granted the required repository access.', 403)
   }
-  if (status === 401) throw new AppError('GitHub authorization expired. Reconnect your account.', 401)
-  if (status === 404) throw new AppError('GitHub resource not found or access was revoked.', 404)
+  if (status === 401) {
+    throw new AppError('GitHub authorization expired. Sign in with GitHub again.', 401)
+  }
+  if (status === 404) {
+    throw new AppError('GitHub resource not found or access was revoked.', 404)
+  }
   throw error
 }
 
-async function installationOctokit(installationId) {
-  if (!Number.isInteger(Number(installationId))) throw new AppError('Invalid installation id.', 400)
-  const cached = tokenCache.get(installationId)
-  if (cached && cached.expiresAt > Date.now() + 60_000) {
-    return new Octokit({ auth: cached.token, request: { timeout: GITHUB_REQUEST_TIMEOUT_MS } })
+export async function exchangeCodeForToken(code) {
+  assertGithubConfigured()
+  if (typeof code !== 'string' || !code || code.length > 500) {
+    throw new AppError('GitHub did not return a valid authorization code.', 400)
   }
 
+  const { clientId, clientSecret, callbackUrl } = config()
+  let response
   try {
-    const octokit = appOctokit()
-    const { data } = await withTimeout(
-      octokit.apps.createInstallationAccessToken({ installation_id: Number(installationId) }),
+    response = await withTimeout(
+      fetch('https://github.com/login/oauth/access_token', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          code,
+          redirect_uri: callbackUrl,
+        }),
+      }),
       GITHUB_REQUEST_TIMEOUT_MS,
-      'Timed out creating a GitHub installation token',
+      'Timed out exchanging the GitHub authorization code',
     )
-    tokenCache.set(installationId, {
-      token: data.token,
-      expiresAt: data.expires_at ? new Date(data.expires_at).getTime() : Date.now() + 50 * 60_000,
-    })
-    return new Octokit({ auth: data.token, request: { timeout: GITHUB_REQUEST_TIMEOUT_MS } })
   } catch (error) {
     translateGithubError(error)
     throw error
   }
+
+  let payload
+  try {
+    payload = await response.json()
+  } catch {
+    throw new AppError('GitHub returned an invalid token response.', 502)
+  }
+
+  if (!response.ok || payload?.error) {
+    const reason = sanitizeText(
+      payload?.error_description || payload?.error || 'GitHub rejected the authorization code.',
+      200,
+    )
+    throw new AppError(`GitHub authorization failed: ${reason}`, 401)
+  }
+  if (!payload?.access_token) {
+    throw new AppError('GitHub did not return an access token.', 502)
+  }
+
+  return {
+    accessToken: payload.access_token,
+    scope: sanitizeText(payload.scope || config().scopes, 300),
+    tokenType: sanitizeText(payload.token_type || 'bearer', 30),
+  }
 }
 
-export async function getInstallationDetails(installationId) {
-  assertGithubConfigured()
+function octokitFor(accessToken) {
+  if (typeof accessToken !== 'string' || !accessToken) {
+    throw new AppError('GitHub is not connected.', 401)
+  }
+  return new Octokit({
+    auth: accessToken,
+    request: { timeout: GITHUB_REQUEST_TIMEOUT_MS },
+  })
+}
+
+export async function getAuthenticatedUser(accessToken) {
+  const octokit = octokitFor(accessToken)
   try {
-    const octokit = appOctokit()
     const { data } = await withTimeout(
-      octokit.apps.getInstallation({ installation_id: Number(installationId) }),
+      octokit.users.getAuthenticated(),
       GITHUB_REQUEST_TIMEOUT_MS,
-      'Timed out reading GitHub installation',
+      'Timed out reading the GitHub profile',
     )
     return {
-      installationId: data.id,
-      githubUserId: data.account?.id || null,
-      githubUsername: sanitizeText(data.account?.login || 'github-user', 100),
-      avatarUrl: sanitizeText(data.account?.avatar_url || '', 500),
-      accountType: data.account?.type || 'User',
+      githubUserId: data.id,
+      githubUsername: sanitizeText(data.login || 'github-user', 100),
+      avatarUrl: sanitizeText(data.avatar_url || '', 500),
     }
-  } catch (error) {
-    translateGithubError(error)
-    throw error
-  }
-}
-
-export async function listAccessibleRepositories(installationId) {
-  const octokit = await installationOctokit(installationId)
-  try {
-    const repositories = await withTimeout(
-      octokit.paginate(octokit.apps.listReposAccessibleToInstallation, { per_page: 100 }),
-      GITHUB_REQUEST_TIMEOUT_MS * 2,
-      'Timed out listing GitHub repositories',
-    )
-    return repositories.map((repo) => normalizeRepository(repo))
   } catch (error) {
     translateGithubError(error)
     throw error
@@ -151,8 +164,29 @@ function normalizeRepository(repo) {
   }
 }
 
-export async function getRepositoryMetadata(installationId, owner, repo) {
-  const octokit = await installationOctokit(installationId)
+export async function listAccessibleRepositories(accessToken) {
+  const octokit = octokitFor(accessToken)
+  try {
+    const repositories = await withTimeout(
+      octokit.paginate(octokit.repos.listForAuthenticatedUser, {
+        visibility: 'all',
+        affiliation: 'owner,collaborator,organization_member',
+        sort: 'updated',
+        direction: 'desc',
+        per_page: 100,
+      }),
+      GITHUB_REQUEST_TIMEOUT_MS * 2,
+      'Timed out listing GitHub repositories',
+    )
+    return repositories.map((repo) => normalizeRepository(repo))
+  } catch (error) {
+    translateGithubError(error)
+    throw error
+  }
+}
+
+export async function getRepositoryMetadata(accessToken, owner, repo) {
+  const octokit = octokitFor(accessToken)
   try {
     const { data } = await withTimeout(
       octokit.repos.get({ owner, repo }),
@@ -192,7 +226,7 @@ async function fetchTreeWithoutTruncation(octokit, owner, repo, ref) {
     const batch = queue
     queue = []
     const results = await mapLimit(batch, MAX_CONCURRENT_REQUESTS, async (node) => {
-      if (node.depth > MAX_TREE_DEPTH) return []
+      if (node.depth > MAX_TREE_DEPTH) return { blobs: [], directories: [] }
       const { data } = await octokit.git.getTree({ owner, repo, tree_sha: node.sha })
       const blobs = relevantBlobs(data.tree).map((blob) => ({
         ...blob,
@@ -227,8 +261,8 @@ async function fetchTreeWithoutTruncation(octokit, owner, repo, ref) {
   return collected
 }
 
-export async function getRepositoryTree(installationId, owner, repo, ref) {
-  const octokit = await installationOctokit(installationId)
+export async function getRepositoryTree(accessToken, owner, repo, ref) {
+  const octokit = octokitFor(accessToken)
   try {
     const { data } = await withTimeout(
       octokit.git.getTree({ owner, repo, tree_sha: ref, recursive: '1' }),
@@ -250,8 +284,8 @@ export async function getRepositoryTree(installationId, owner, repo, ref) {
   }
 }
 
-export async function getFileContent(installationId, owner, repo, path, ref) {
-  const octokit = await installationOctokit(installationId)
+export async function getFileContent(accessToken, owner, repo, path, ref) {
+  const octokit = octokitFor(accessToken)
   try {
     const { data } = await withTimeout(
       octokit.repos.getContent({
