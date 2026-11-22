@@ -462,70 +462,78 @@ export default function RepositoryUpdateDetails() {
       )}
 
       {/* Section 2: Repository Update Overview (8 Calculated Summary Metrics) */}
-      <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4 lg:grid-cols-8">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-4">
         <StatCard
+          square
           index={0}
           label="Total Deps"
-          value={stats.total || stats.totalDependencies}
+          value={stats.total || stats.totalDependencies || 0}
           description="Detected packages"
           icon={LuPackage}
           tone="neutral"
         />
         <StatCard
+          square
           index={1}
           label="Up to Date"
-          value={stats.upToDate}
+          value={stats.upToDate || 0}
           description="At latest stable"
           icon={LuCircleCheck}
           tone="success"
         />
         <StatCard
+          square
           index={2}
           label="Updates Available"
-          value={stats.updateAvailable}
+          value={stats.updateAvailable || 0}
           description="Newer releases"
           icon={LuTrendingUp}
           tone="warning"
         />
         <StatCard
+          square
           index={3}
           label="Major Updates"
-          value={stats.majorUpdates}
+          value={stats.majorUpdates || 0}
           description="Breaking potential"
           icon={LuTriangleAlert}
           tone="danger"
         />
         <StatCard
+          square
           index={4}
           label="Minor Updates"
-          value={stats.minorUpdates}
+          value={stats.minorUpdates || 0}
           description="Features added"
           icon={LuRefreshCw}
           tone="warning"
         />
         <StatCard
+          square
           index={5}
           label="Patch Updates"
-          value={stats.patchUpdates}
+          value={stats.patchUpdates || 0}
           description="Bugfixes only"
           icon={LuGitBranch}
           tone="cyan"
         />
         <StatCard
+          square
           index={6}
           label="Vulnerable"
-          value={stats.vulnerable || stats.vulnerableDependencies}
+          value={stats.vulnerable || stats.vulnerableDependencies || 0}
           description="Security advisories"
           icon={LuShieldAlert}
           tone="danger"
         />
         <StatCard
+          square
           index={7}
           label="Research Done"
-          value={stats.researchCompleted}
+          value={Math.max(stats.researchCompleted || 0, activeResearchJob?.completed || 0)}
           description="Firecrawl verified"
           icon={LuFlame}
-          tone="violet"
+          tone="purple"
         />
       </div>
 

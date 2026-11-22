@@ -1,3 +1,4 @@
+import mongoose from 'mongoose'
 import Dependency from '../models/Dependency.js'
 import DependencyUpdate from '../models/DependencyUpdate.js'
 import DependencyResearch from '../models/DependencyResearch.js'
@@ -20,6 +21,19 @@ import {
   researchSingleDependency,
 } from '../services/updateIntelligence/research/dependencyResearchService.js'
 
+function toObjectId(id) {
+  if (!id) return id
+  if (id instanceof mongoose.Types.ObjectId) return id
+  if (typeof id === 'string' && mongoose.Types.ObjectId.isValid(id)) {
+    try {
+      return new mongoose.Types.ObjectId(id)
+    } catch {
+      return id
+    }
+  }
+  return id
+}
+
 function pagination(query, defaultLimit = 20, maxLimit = 100) {
   const page = Math.max(1, Number.parseInt(query.page, 10) || 1)
   const limit = Math.min(maxLimit, Math.max(1, Number.parseInt(query.limit, 10) || defaultLimit))
@@ -40,9 +54,11 @@ function countField(field, value) {
 }
 
 async function repositorySummaries(userId, query = {}) {
+  const userObjId = toObjectId(userId)
+  const userMatch = { $in: [userObjId, String(userObjId)] }
   const [stats, repositories, depStats, researchStats] = await Promise.all([
     DependencyUpdate.aggregate([
-      { $match: { userId } },
+      { $match: { userId: userMatch } },
       {
         $group: {
           _id: '$repositoryId',
@@ -54,18 +70,18 @@ async function repositorySummaries(userId, query = {}) {
           patchUpdates: countField('updateType', 'PATCH'),
           vulnerable: countField('securityStatus', 'VULNERABLE'),
           deprecated: { $sum: { $cond: [{ $eq: ['$deprecated', true] }, 1, 0] } },
-          researchCompleted: { $sum: { $cond: [{ $eq: ['$researchStatus', 'COMPLETED'] }, 1, 0] } },
+          researchCompleted: { $sum: { $cond: [{ $in: ['$researchStatus', ['COMPLETED', 'PARTIAL']] }, 1, 0] } },
           researchPending: { $sum: { $cond: [{ $in: ['$researchStatus', ['QUEUED', 'RESEARCHING']] }, 1, 0] } },
           researchFailed: { $sum: { $cond: [{ $eq: ['$researchStatus', 'FAILED'] }, 1, 0] } },
           lastCheckedAt: { $max: '$lastCheckedAt' },
         },
       },
     ]),
-    Repository.find({ userId })
+    Repository.find({ userId: userObjId })
       .select('fullName name owner htmlUrl language visibility updateCheckStatus lastUpdateCheckAt lastScannedAt')
       .lean(),
     Dependency.aggregate([
-      { $match: { userId } },
+      { $match: { userId: userMatch } },
       {
         $group: {
           _id: '$repositoryId',
@@ -75,7 +91,7 @@ async function repositorySummaries(userId, query = {}) {
       },
     ]),
     DependencyResearch.aggregate([
-      { $match: { userId } },
+      { $match: { userId: userMatch } },
       {
         $group: {
           _id: '$repositoryId',
@@ -192,9 +208,11 @@ async function resolveDependency(userId, dependencyId) {
 
 export const overview = asyncHandler(async (req, res) => {
   const userId = req.user._id
+  const userObjId = toObjectId(userId)
+  const userMatch = { $in: [userObjId, String(userObjId)] }
   const [facets, repositoriesAnalyzed, lastChecked, activeJob] = await Promise.all([
     DependencyUpdate.aggregate([
-      { $match: { userId } },
+      { $match: { userId: userMatch } },
       {
         $facet: {
           totals: [
@@ -227,17 +245,17 @@ export const overview = asyncHandler(async (req, res) => {
         },
       },
     ]),
-    DependencyUpdate.distinct('repositoryId', { userId }),
-    DependencyUpdate.findOne({ userId }).sort({ lastCheckedAt: -1 }).select('lastCheckedAt').lean(),
-    UpdateJob.findOne({ userId, status: { $in: ['QUEUED', 'SCANNING'] } })
+    DependencyUpdate.distinct('repositoryId', { userId: userObjId }),
+    DependencyUpdate.findOne({ userId: userObjId }).sort({ lastCheckedAt: -1 }).select('lastCheckedAt').lean(),
+    UpdateJob.findOne({ userId: userObjId, status: { $in: ['QUEUED', 'SCANNING'] } })
       .sort({ createdAt: -1 })
       .lean(),
   ])
 
   const totals = facets[0]?.totals?.[0] || {}
-  const [repositorySummary] = await Promise.all([repositorySummaries(userId, { limit: 6, sort: 'outdated' })])
+  const [repositorySummary] = await Promise.all([repositorySummaries(userObjId, { limit: 6, sort: 'outdated' })])
   const recentUpdates = await DependencyUpdate.find({
-    userId,
+    userId: userObjId,
     updateStatus: { $in: ['OUTDATED', 'UPDATE_AVAILABLE', 'SECURITY_RISK'] },
   })
     .sort({ lastCheckedAt: -1 })
@@ -346,21 +364,24 @@ export const listUpdates = asyncHandler(async (req, res) => {
 
 export const repositoryDetails = asyncHandler(async (req, res) => {
   const repositoryId = requireObjectId(req.params.repositoryId, 'repository id')
-  const repository = await Repository.findOne({ _id: repositoryId, userId: req.user._id }).lean()
+  const repoObjId = toObjectId(repositoryId)
+  const userObjId = toObjectId(req.user._id)
+
+  const repository = await Repository.findOne({ _id: repoObjId, userId: userObjId }).lean()
   if (!repository) {
     res.status(404)
     throw new Error('Repository not found.')
   }
 
   // Ensure baseline DependencyUpdate records exist for all scanned dependencies
-  const existingUpdateCount = await DependencyUpdate.countDocuments({ userId: req.user._id, repositoryId })
-  const depTotalCount = await Dependency.countDocuments({ userId: req.user._id, repositoryId })
+  const existingUpdateCount = await DependencyUpdate.countDocuments({ userId: userObjId, repositoryId: repoObjId })
+  const depTotalCount = await Dependency.countDocuments({ userId: userObjId, repositoryId: repoObjId })
   if (existingUpdateCount === 0 && depTotalCount > 0) {
-    const rawDeps = await Dependency.find({ userId: req.user._id, repositoryId }).lean()
+    const rawDeps = await Dependency.find({ userId: userObjId, repositoryId: repoObjId }).lean()
     if (rawDeps.length > 0) {
       const records = rawDeps.map((d) => ({
-        userId: req.user._id,
-        repositoryId,
+        userId: userObjId,
+        repositoryId: repoObjId,
         dependencyId: d._id,
         ecosystem: d.ecosystem,
         packageName: d.packageName,
@@ -385,11 +406,11 @@ export const repositoryDetails = asyncHandler(async (req, res) => {
       repository.updateCheckStatus !== 'SCANNING' &&
       repository.updateCheckStatus !== 'QUEUED'
     ) {
-      queueRepositoryUpdate({ userId: req.user._id, repositoryId }).catch(() => null)
+      queueRepositoryUpdate({ userId: userObjId, repositoryId }).catch(() => null)
     }
   }
 
-  const match = { userId: req.user._id, repositoryId }
+  const match = { userId: userObjId, repositoryId: repoObjId }
   const search = sanitizeText(req.query.search, 120)
   if (search) match.packageName = { $regex: escapeRegex(search), $options: 'i' }
   const ecosystem = normalizeEcosystem(req.query.ecosystem)
@@ -411,11 +432,18 @@ export const repositoryDetails = asyncHandler(async (req, res) => {
     { packageName: 1 },
   )
   const { page, limit, skip } = pagination(req.query, 20, 100)
-  const [updates, total, summaries, depCount, coreDepCount, latestJob, connectedRepositories] = await Promise.all([
+  const [updates, total, summaries, depCount, coreDepCount, latestJob, connectedRepositories, directResearchCount] = await Promise.all([
     DependencyUpdate.find(match).sort(sort).skip(skip).limit(limit).populate('researchId').lean(),
     DependencyUpdate.countDocuments(match),
     DependencyUpdate.aggregate([
-      { $match: { userId: req.user._id, repositoryId } },
+      {
+        $match: {
+          $and: [
+            { userId: { $in: [userObjId, String(userObjId)] } },
+            { repositoryId: { $in: [repoObjId, String(repoObjId)] } },
+          ],
+        },
+      },
       {
         $group: {
           _id: null,
@@ -428,24 +456,33 @@ export const repositoryDetails = asyncHandler(async (req, res) => {
           patchUpdates: countField('updateType', 'PATCH'),
           vulnerable: countField('securityStatus', 'VULNERABLE'),
           deprecated: { $sum: { $cond: [{ $eq: ['$deprecated', true] }, 1, 0] } },
-          researchCompleted: { $sum: { $cond: [{ $eq: ['$researchStatus', 'COMPLETED'] }, 1, 0] } },
+          researchCompleted: { $sum: { $cond: [{ $in: ['$researchStatus', ['COMPLETED', 'PARTIAL']] }, 1, 0] } },
           researchPending: { $sum: { $cond: [{ $in: ['$researchStatus', ['QUEUED', 'RESEARCHING']] }, 1, 0] } },
           researchFailed: { $sum: { $cond: [{ $eq: ['$researchStatus', 'FAILED'] }, 1, 0] } },
         },
       },
     ]),
-    Dependency.countDocuments({ userId: req.user._id, repositoryId }),
-    Dependency.countDocuments({ userId: req.user._id, repositoryId, isDevelopmentDependency: false }),
-    UpdateJob.findOne({ userId: req.user._id, repositoryId }).sort({ createdAt: -1 }).lean(),
-    Repository.find({ userId: req.user._id })
+    Dependency.countDocuments({ userId: userObjId, repositoryId: repoObjId }),
+    Dependency.countDocuments({ userId: userObjId, repositoryId: repoObjId, isDevelopmentDependency: false }),
+    UpdateJob.findOne({ userId: userObjId, repositoryId: repoObjId }).sort({ createdAt: -1 }).lean(),
+    Repository.find({ userId: userObjId })
       .select('name fullName owner language')
       .sort({ fullName: 1 })
       .lean(),
+    DependencyResearch.countDocuments({
+      repositoryId: repoObjId,
+      researchStatus: { $in: ['COMPLETED', 'PARTIAL'] },
+    }),
   ])
 
   const s = summaries[0] || {}
   const totalDeps = depCount || s.total || 0
   const activeResearchJob = getRepositoryResearchStatus(repositoryId)
+  const completedResearch = Math.max(
+    s.researchCompleted || 0,
+    directResearchCount || 0,
+    activeResearchJob?.completed || 0,
+  )
 
   res.json({
     success: true,
@@ -474,7 +511,7 @@ export const repositoryDetails = asyncHandler(async (req, res) => {
       vulnerable: s.vulnerable || 0,
       vulnerableDependencies: s.vulnerable || 0,
       deprecated: s.deprecated || 0,
-      researchCompleted: s.researchCompleted || 0,
+      researchCompleted: completedResearch,
       researchPending: s.researchPending || 0,
       researchFailed: s.researchFailed || 0,
     },
@@ -583,14 +620,16 @@ export const history = asyncHandler(async (req, res) => {
 
 export const vulnerabilities = asyncHandler(async (req, res) => {
   const userId = req.user._id
-  const before = { userId, vulnerabilities: { $exists: true, $ne: [] } }
+  const userObjId = toObjectId(userId)
+  const before = { userId: { $in: [userObjId, String(userObjId)] }, vulnerabilities: { $exists: true, $ne: [] } }
   if (req.query.repositoryId && isValidObjectId(req.query.repositoryId)) {
-    const owned = await Repository.findOne({ _id: req.query.repositoryId, userId }).select('_id')
+    const repoObjId = toObjectId(req.query.repositoryId)
+    const owned = await Repository.findOne({ _id: repoObjId, userId: userObjId }).select('_id')
     if (!owned) {
       res.status(404)
       throw new Error('Repository not found.')
     }
-    before.repositoryId = owned._id
+    before.repositoryId = { $in: [repoObjId, String(repoObjId)] }
   }
   const ecosystem = normalizeEcosystem(req.query.ecosystem)
   if (ecosystem) before.ecosystem = { $regex: `^${ecosystem.label}$`, $options: 'i' }
@@ -699,19 +738,36 @@ export const triggerRepositoryResearch = asyncHandler(async (req, res) => {
 export const getRepositoryResearchStatusEndpoint = asyncHandler(async (req, res) => {
   const repositoryId = requireObjectId(req.params.repositoryId, 'repository id')
   const activeJob = getRepositoryResearchStatus(repositoryId)
+  const repoObjId = toObjectId(repositoryId)
+  const userObjId = toObjectId(req.user._id)
 
-  const counts = await DependencyUpdate.aggregate([
-    { $match: { userId: req.user._id, repositoryId } },
-    { $group: { _id: '$researchStatus', count: { $sum: 1 } } },
+  const [counts, directResearchCount] = await Promise.all([
+    DependencyUpdate.aggregate([
+      {
+        $match: {
+          $and: [
+            { userId: { $in: [userObjId, String(userObjId)] } },
+            { repositoryId: { $in: [repoObjId, String(repoObjId)] } },
+          ],
+        },
+      },
+      { $group: { _id: '$researchStatus', count: { $sum: 1 } } },
+    ]),
+    DependencyResearch.countDocuments({
+      repositoryId: repoObjId,
+      researchStatus: { $in: ['COMPLETED', 'PARTIAL'] },
+    }),
   ])
 
   const statusMap = Object.fromEntries(counts.map((c) => [c._id, c.count]))
+  const completedCount = Math.max(statusMap.COMPLETED || 0, directResearchCount || 0, activeJob?.completed || 0)
+
   res.json({
     success: true,
     job: activeJob,
     counts: {
-      COMPLETED: statusMap.COMPLETED || 0,
-      RESEARCHING: statusMap.RESEARCHING || 0,
+      COMPLETED: completedCount,
+      RESEARCHING: activeJob?.status === 'RUNNING' ? 1 : (statusMap.RESEARCHING || 0),
       QUEUED: statusMap.QUEUED || 0,
       PARTIAL: statusMap.PARTIAL || 0,
       FAILED: statusMap.FAILED || 0,
@@ -722,21 +778,24 @@ export const getRepositoryResearchStatusEndpoint = asyncHandler(async (req, res)
 
 export const repositoryDependencies = asyncHandler(async (req, res) => {
   const repositoryId = requireObjectId(req.params.repositoryId, 'repository id')
-  const repository = await Repository.findOne({ _id: repositoryId, userId: req.user._id }).lean()
+  const repoObjId = toObjectId(repositoryId)
+  const userObjId = toObjectId(req.user._id)
+
+  const repository = await Repository.findOne({ _id: repoObjId, userId: userObjId }).lean()
   if (!repository) {
     res.status(404)
     throw new Error('Repository not found.')
   }
 
   // Ensure baseline DependencyUpdate records exist for all scanned dependencies
-  const existingUpdateCount = await DependencyUpdate.countDocuments({ userId: req.user._id, repositoryId })
-  const depTotalCount = await Dependency.countDocuments({ userId: req.user._id, repositoryId })
+  const existingUpdateCount = await DependencyUpdate.countDocuments({ userId: userObjId, repositoryId: repoObjId })
+  const depTotalCount = await Dependency.countDocuments({ userId: userObjId, repositoryId: repoObjId })
   if (existingUpdateCount === 0 && depTotalCount > 0) {
-    const rawDeps = await Dependency.find({ userId: req.user._id, repositoryId }).lean()
+    const rawDeps = await Dependency.find({ userId: userObjId, repositoryId: repoObjId }).lean()
     if (rawDeps.length > 0) {
       const records = rawDeps.map((d) => ({
-        userId: req.user._id,
-        repositoryId,
+        userId: userObjId,
+        repositoryId: repoObjId,
         dependencyId: d._id,
         ecosystem: d.ecosystem,
         packageName: d.packageName,
@@ -761,11 +820,11 @@ export const repositoryDependencies = asyncHandler(async (req, res) => {
       repository.updateCheckStatus !== 'SCANNING' &&
       repository.updateCheckStatus !== 'QUEUED'
     ) {
-      queueRepositoryUpdate({ userId: req.user._id, repositoryId }).catch(() => null)
+      queueRepositoryUpdate({ userId: userObjId, repositoryId }).catch(() => null)
     }
   }
 
-  const match = { userId: req.user._id, repositoryId }
+  const match = { userId: userObjId, repositoryId: repoObjId }
   if (req.query.search) {
     match.packageName = { $regex: escapeRegex(req.query.search), $options: 'i' }
   }
