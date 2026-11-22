@@ -9,6 +9,7 @@ import {
   LuLogOut,
   LuPanelLeftClose,
   LuPanelLeftOpen,
+  LuRadio,
   LuSettings,
   LuSparkles,
   LuX,
@@ -43,6 +44,13 @@ const PRIMARY_NAV_ITEMS = [
       pathname.startsWith('/dashboard/intelligence') ||
       pathname.startsWith('/dashboard/vulnerabilities') ||
       pathname.startsWith('/dashboard/reports'),
+  },
+  {
+    label: 'Release Radar',
+    path: '/dashboard/radar',
+    icon: LuRadio,
+    badge: '6M',
+    isMatch: (pathname) => pathname.startsWith('/dashboard/radar'),
   },
   {
     label: 'Memento',
@@ -82,7 +90,20 @@ function NavButton({ item, isActive, collapsed, onNavigate }) {
         }`}
         aria-hidden="true"
       />
-      {!collapsed ? <span className="truncate">{item.label}</span> : null}
+      {!collapsed ? (
+        <span className="flex flex-1 items-center justify-between gap-1 truncate">
+          <span className="truncate">{item.label}</span>
+          {item.badge ? (
+            <span
+              className={`rounded-full px-1.5 py-0.2 text-[9px] font-bold tracking-wider ${
+                isActive ? 'bg-sky-400/20 text-sky-300' : 'bg-slate-200 text-slate-700'
+              }`}
+            >
+              {item.badge}
+            </span>
+          ) : null}
+        </span>
+      ) : null}
 
       {/* Floating tooltip for collapsed view */}
       {collapsed ? (

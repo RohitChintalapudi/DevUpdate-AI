@@ -16,6 +16,7 @@ import DependencyUpdates from './pages/dashboard/DependencyUpdates'
 import RepositoryUpdateDetails from './pages/dashboard/RepositoryUpdateDetails'
 import DependencyUpdateDetail from './pages/dashboard/DependencyUpdateDetail'
 import Vulnerabilities from './pages/dashboard/Vulnerabilities'
+import ReleaseRadar from './pages/dashboard/ReleaseRadar'
 import Memory from './pages/dashboard/Memory'
 import History from './pages/dashboard/History'
 import Feedback from './pages/dashboard/Feedback'
@@ -74,6 +75,7 @@ export default function App() {
         <Route path="updates/repository/:repositoryId" element={<RepositoryUpdateDetails />} />
         <Route path="updates/:dependencyId" element={<DependencyUpdateDetail />} />
         <Route path="vulnerabilities" element={<Vulnerabilities />} />
+        <Route path="radar" element={<ReleaseRadar />} />
         <Route path="ai" element={<Navigate to="/dashboard/updates" replace />} />
         <Route path="ai/*" element={<Navigate to="/dashboard/updates" replace />} />
         <Route path="recommendations" element={<Navigate to="/dashboard/updates" replace />} />

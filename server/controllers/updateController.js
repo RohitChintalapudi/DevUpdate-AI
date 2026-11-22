@@ -410,6 +410,17 @@ export const listUpdates = asyncHandler(async (req, res) => {
   }
   if (req.query.securityStatus) match.securityStatus = sanitizeText(req.query.securityStatus, 40).toUpperCase()
 
+  // Filter by time window (e.g. past 6 months = 180 days)
+  if (req.query.days && req.query.days !== 'all') {
+    const days = Math.max(1, Number.parseInt(req.query.days, 10) || 180)
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+    match.$or = [
+      { latestReleaseDate: { $gte: cutoff } },
+      { lastCheckedAt: { $gte: cutoff } },
+      { createdAt: { $gte: cutoff } },
+    ]
+  }
+
   if (req.query.repositoryId && isValidObjectId(req.query.repositoryId)) {
     const owned = await Repository.findOne({
       _id: req.query.repositoryId,
@@ -425,12 +436,13 @@ export const listUpdates = asyncHandler(async (req, res) => {
   const sort = sortValue(
     req.query,
     {
+      released: { latestReleaseDate: -1, lastCheckedAt: -1 },
+      checked: { lastCheckedAt: -1 },
       name: { packageName: 1 },
       ecosystem: { ecosystem: 1, packageName: 1 },
       status: { updateStatus: 1, packageName: 1 },
       type: { updateType: 1, packageName: 1 },
       security: { securityStatus: 1, packageName: 1 },
-      checked: { lastCheckedAt: -1 },
     },
     { lastCheckedAt: -1 },
   )
@@ -440,11 +452,12 @@ export const listUpdates = asyncHandler(async (req, res) => {
       .sort(sort)
       .skip(skip)
       .limit(limit)
-      .populate('repositoryId', 'name fullName')
+      .populate('repositoryId', 'name fullName owner htmlUrl language')
+      .populate('researchId')
       .lean(),
     DependencyUpdate.countDocuments(match),
     Repository.find({ userId: req.user._id })
-      .select('name fullName')
+      .select('name fullName owner htmlUrl language')
       .sort({ fullName: 1 })
       .lean(),
   ])
