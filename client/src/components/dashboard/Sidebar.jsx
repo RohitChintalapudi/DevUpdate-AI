@@ -108,6 +108,7 @@ function SidebarContent({
   onNavigate,
   showCollapse,
   onOpenHelp,
+  onOpenLogout,
 }) {
   const location = useLocation()
   const navigate = useNavigate()
@@ -122,9 +123,12 @@ function SidebarContent({
     .join('')
     .toUpperCase() || 'DU'
 
-  const handleLogout = async () => {
-    await logout()
-    navigate('/login', { replace: true })
+  const handleLogout = () => {
+    if (onOpenLogout) {
+      onOpenLogout()
+    } else {
+      logout().then(() => navigate('/login', { replace: true }))
+    }
   }
 
   const isSettingsActive = pathname.startsWith('/dashboard/settings')
@@ -296,7 +300,13 @@ function SidebarContent({
   )
 }
 
-export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) {
+export default function Sidebar({
+  collapsed,
+  setCollapsed,
+  mobileOpen,
+  setMobileOpen,
+  onOpenLogout,
+}) {
   const [helpOpen, setHelpOpen] = useState(false)
 
   return (
@@ -316,6 +326,7 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
           onCollapse={() => setCollapsed(true)}
           showCollapse
           onOpenHelp={() => setHelpOpen(true)}
+          onOpenLogout={onOpenLogout}
         />
         {collapsed ? (
           <button
@@ -362,6 +373,10 @@ export default function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobile
                 onOpenHelp={() => {
                   setMobileOpen(false)
                   setHelpOpen(true)
+                }}
+                onOpenLogout={() => {
+                  setMobileOpen(false)
+                  onOpenLogout?.()
                 }}
               />
             </motion.aside>

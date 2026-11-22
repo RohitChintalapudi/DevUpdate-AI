@@ -33,7 +33,7 @@ const notificationIcon = {
   MAJOR_UPDATE: LuSparkles,
 }
 
-export default function Topbar({ onOpenMobileNav }) {
+export default function Topbar({ onOpenMobileNav, onOpenLogout }) {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
@@ -91,9 +91,12 @@ export default function Topbar({ onOpenMobileNav }) {
     navigate('/dashboard/notifications')
   }
 
-  const handleLogout = async () => {
-    await logout()
-    navigate('/login', { replace: true })
+  const handleLogout = () => {
+    if (onOpenLogout) {
+      onOpenLogout()
+    } else {
+      logout().then(() => navigate('/login', { replace: true }))
+    }
   }
 
   const notificationItems = [

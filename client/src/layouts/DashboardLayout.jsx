@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from '../components/dashboard/Sidebar'
 import Topbar from '../components/dashboard/Topbar'
+import LogoutConfirmModal from '../components/dashboard/LogoutConfirmModal'
 
 export default function DashboardLayout() {
   const [collapsed, setCollapsed] = useState(() => {
@@ -12,6 +13,7 @@ export default function DashboardLayout() {
     return false
   })
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
   const location = useLocation()
 
   useEffect(() => {
@@ -30,17 +32,25 @@ export default function DashboardLayout() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans antialiased">
       <div className="pointer-events-none fixed inset-0 grid-bg opacity-70" />
+      <LogoutConfirmModal
+        open={logoutConfirmOpen}
+        onClose={() => setLogoutConfirmOpen(false)}
+      />
       <Sidebar
         collapsed={collapsed}
         setCollapsed={setCollapsed}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
+        onOpenLogout={() => setLogoutConfirmOpen(true)}
       />
       <div
         className="relative min-h-screen transition-[margin] duration-300 ease-out lg:ml-[var(--sidebar-width)]"
         style={{ '--sidebar-width': collapsed ? '72px' : '240px' }}
       >
-        <Topbar onOpenMobileNav={() => setMobileOpen(true)} />
+        <Topbar
+          onOpenMobileNav={() => setMobileOpen(true)}
+          onOpenLogout={() => setLogoutConfirmOpen(true)}
+        />
         <AnimatePresence mode="wait">
           <motion.main
             key={location.pathname}
