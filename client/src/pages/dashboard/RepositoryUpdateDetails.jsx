@@ -78,6 +78,7 @@ export default function RepositoryUpdateDetails() {
   // Research job status
   const [activeResearchJob, setActiveResearchJob] = useState(null)
   const [dismissedResearch, setDismissedResearch] = useState(false)
+  const [showResearchModal, setShowResearchModal] = useState(false)
 
   const load = useCallback(async () => {
     if (!repositoryId) return
@@ -263,16 +264,21 @@ export default function RepositoryUpdateDetails() {
 
   // Trigger repository Firecrawl research job
   const handleTriggerResearchAll = async () => {
+    if (activeResearchJob?.status === 'RUNNING' || isResearchPolling) {
+      setShowResearchModal(true)
+      return
+    }
     const totalCount = data?.stats?.total || data?.stats?.totalDependencies || 1
     setDismissedResearch(false)
-    // Immediately set optimistic activeResearchJob so the animated progress bar pops up with zero delay
+    setShowResearchModal(true)
+    // Immediately set optimistic activeResearchJob so the modal and progress bar pop up with zero delay
     setActiveResearchJob({
       status: 'RUNNING',
       total: totalCount,
       completed: 0,
       failed: 0,
-      percent: 4,
-      currentPackage: 'Connecting to Firecrawl crawler engine…',
+      percent: 5,
+      currentPackage: 'Scanning repository manifests & source tree…',
       startedAt: new Date().toISOString(),
     })
     setResearchingAll(true)
@@ -294,6 +300,7 @@ export default function RepositoryUpdateDetails() {
         message: getErrorMessage(error),
       })
       setActiveResearchJob(null)
+      setShowResearchModal(false)
     } finally {
       setResearchingAll(false)
     }
@@ -507,6 +514,261 @@ export default function RepositoryUpdateDetails() {
         </div>
       )}
 
+      {/* Dedicated Firecrawl Research Loading Popup Modal */}
+      <AnimatePresence>
+        {showResearchModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+            {/* Backdrop blur overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-slate-950/70 backdrop-blur-md"
+              onClick={() => setShowResearchModal(false)}
+            />
+
+            {/* Modal Card */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              className="relative w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-700/60 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 p-6 sm:p-8 text-white shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Radial atmosphere glow */}
+              <div
+                className={`pointer-events-none absolute -top-24 -right-24 h-64 w-64 rounded-full blur-3xl opacity-30 ${
+                  isCompleted ? 'bg-emerald-500' : 'bg-amber-500'
+                }`}
+              />
+              <div
+                className={`pointer-events-none absolute -bottom-24 -left-24 h-64 w-64 rounded-full blur-3xl opacity-20 ${
+                  isCompleted ? 'bg-teal-500' : 'bg-orange-500'
+                }`}
+              />
+
+              {/* Modal Header */}
+              <div className="relative flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div
+                    className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-lg ${
+                      isCompleted
+                        ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white'
+                        : 'bg-gradient-to-br from-amber-500 to-orange-500 text-white'
+                    }`}
+                  >
+                    <LuFlame className="h-6 w-6 animate-pulse" />
+                    <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border-2 border-slate-900"></span>
+                    </span>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-bold tracking-tight text-white">
+                        {isCompleted
+                          ? 'Firecrawl Documentation Research Complete'
+                          : 'Firecrawl Dependency Research'}
+                      </h3>
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10.5px] font-semibold border ${
+                          isCompleted
+                            ? 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40'
+                            : 'bg-amber-950/80 text-amber-300 border-amber-500/40'
+                        }`}
+                      >
+                        <span className={`h-1.5 w-1.5 rounded-full ${isCompleted ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
+                        {isCompleted ? 'Research Completed' : 'Deep Crawler Active'}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-slate-400">
+                      Scanning source code, official package registries, and deep-crawling documentation with Firecrawl.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowResearchModal(false)}
+                  className="rounded-xl p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+                  title="Close modal (research continues in background)"
+                >
+                  <LuX className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* 4 Pipeline Stages */}
+              <div className="relative mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {[
+                  {
+                    step: 1,
+                    title: 'Source Scan',
+                    subtitle: 'Manifests verified',
+                    done: true,
+                    active: false,
+                  },
+                  {
+                    step: 2,
+                    title: 'Registry Query',
+                    subtitle: 'Ecosystems & OSV',
+                    done: true,
+                    active: false,
+                  },
+                  {
+                    step: 3,
+                    title: 'Firecrawl Crawl',
+                    subtitle: 'Changelogs & docs',
+                    done: isCompleted,
+                    active: !isCompleted && displayPercent < 85,
+                  },
+                  {
+                    step: 4,
+                    title: 'AI Classification',
+                    subtitle: 'Status & upgrade impact',
+                    done: isCompleted,
+                    active: !isCompleted && displayPercent >= 85,
+                  },
+                ].map((st) => (
+                  <div
+                    key={st.step}
+                    className={`rounded-2xl border p-3 transition-all ${
+                      st.done
+                        ? 'border-emerald-500/40 bg-emerald-950/30 text-emerald-300'
+                        : st.active
+                        ? 'border-amber-500/60 bg-amber-950/40 text-amber-200 ring-1 ring-amber-500/30'
+                        : 'border-slate-800 bg-slate-800/40 text-slate-500'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold tracking-wider uppercase opacity-75">
+                        Step 0{st.step}
+                      </span>
+                      {st.done ? (
+                        <LuCircleCheck className="h-4 w-4 text-emerald-400" />
+                      ) : st.active ? (
+                        <LuRefreshCw className="h-3.5 w-3.5 animate-spin text-amber-400" />
+                      ) : (
+                        <span className="h-2 w-2 rounded-full bg-slate-700" />
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs font-bold text-white">{st.title}</p>
+                    <p className="text-[10px] text-slate-400">{st.subtitle}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Network Streaming Progress Bar */}
+              <div className="relative mt-6">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-300">Overall Research Progress</span>
+                    <span className="rounded-md bg-slate-800 px-2 py-0.5 font-mono text-[11px] text-slate-300">
+                      {researchCompletedCount} / {researchTotalCount} dependencies
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-1 font-mono text-xl font-black">
+                    <span className={isCompleted ? 'text-emerald-400' : 'text-amber-400'}>{displayPercent}</span>
+                    <span className="text-xs text-slate-400">%</span>
+                  </div>
+                </div>
+
+                {/* Progress bar container */}
+                <div className="h-5 sm:h-6 w-full overflow-hidden rounded-full bg-slate-800/90 p-0.5 shadow-inner">
+                  <div
+                    className={`relative h-full rounded-full transition-all duration-700 ease-out overflow-hidden ${
+                      isCompleted
+                        ? 'bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-400 shadow-[0_0_16px_rgba(16,185,129,0.6)]'
+                        : 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-400 shadow-[0_0_16px_rgba(245,158,11,0.6)]'
+                    }`}
+                    style={{ width: `${displayPercent}%` }}
+                  >
+                    {/* Animated diagonal stripes */}
+                    <div className="absolute inset-0 animate-network-stripes opacity-40 pointer-events-none" />
+
+                    {/* Network high-speed beam sweep */}
+                    {!isCompleted && (
+                      <div className="absolute inset-0 w-32 bg-gradient-to-r from-transparent via-white/80 to-transparent animate-network-beam pointer-events-none" />
+                    )}
+
+                    {/* Glowing Leading Head Node */}
+                    <div
+                      className={`absolute right-1 top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full bg-white shadow-[0_0_12px_#ffffff] ${
+                        isCompleted ? 'ring-2 ring-emerald-300' : 'ring-2 ring-amber-300'
+                      }`}
+                    >
+                      {!isCompleted && (
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* High-Tech Telemetry Status Card */}
+              <div className="relative mt-5 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 font-mono text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2.5">
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Active Package Target:</span>
+                    <span className="font-bold text-amber-300 truncate max-w-[240px]">
+                      {currentResearchPackage}
+                    </span>
+                  </div>
+                  <div className="text-slate-400">
+                    <span>ETA: </span>
+                    <span className="font-bold text-white">
+                      {isCompleted ? 'Complete' : `~${formatEtaTime(etaSeconds)}`}
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400">
+                  <span className="flex items-center gap-1.5 truncate text-slate-300">
+                    <LuSparkles className={`h-3.5 w-3.5 shrink-0 ${isCompleted ? 'text-emerald-400' : 'text-amber-400 animate-pulse'}`} />
+                    {researchStageLabel}
+                  </span>
+                  <span className="text-[10px] text-slate-500 shrink-0">
+                    3 parallel Firecrawl workers
+                  </span>
+                </div>
+              </div>
+
+              {/* Modal Actions / Footer */}
+              <div className="relative mt-6 flex flex-wrap items-center justify-between gap-3 pt-2">
+                <p className="text-xs text-slate-400">
+                  {isCompleted
+                    ? 'All dependencies researched and stored.'
+                    : 'You can close this popup anytime; research continues safely in background.'}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowResearchModal(false)}
+                    className="text-slate-400 hover:text-white"
+                  >
+                    {isCompleted ? 'Close' : 'Run in Background'}
+                  </Button>
+                  {isCompleted && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      leftIcon={LuCircleCheck}
+                      onClick={() => {
+                        setShowResearchModal(false)
+                        silentRefresh()
+                      }}
+                    >
+                      View Intelligence Results
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Active Firecrawl Research Progress Banner with High-Tech Network Animation */}
       <AnimatePresence>
         {isResearchActive && (
@@ -613,6 +875,13 @@ export default function RepositoryUpdateDetails() {
                       {isCompleted ? '0s (Done)' : `~${formatEtaTime(etaSeconds)}`}
                     </p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowResearchModal(true)}
+                    className="rounded-lg border border-slate-300/80 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition cursor-pointer shadow-2xs"
+                  >
+                    Open Live Modal
+                  </button>
                   <button
                     type="button"
                     onClick={() => setDismissedResearch(true)}
@@ -775,14 +1044,9 @@ export default function RepositoryUpdateDetails() {
             }}
           >
             <option value="">All update statuses</option>
-            <option value="UP_TO_DATE">Up to date</option>
-            <option value="UPDATE_AVAILABLE">Update available</option>
+            <option value="UP_TO_DATE">Up to Date</option>
+            <option value="UPDATE_AVAILABLE">Needs Upgrade</option>
             <option value="OUTDATED">Outdated</option>
-            <option value="DEPRECATED">Deprecated</option>
-            <option value="YANKED">Yanked</option>
-            <option value="SECURITY_RISK">Security risk</option>
-            <option value="NOT_FOUND">Not found</option>
-            <option value="REGISTRY_ERROR">Registry error</option>
           </select>
 
           <select

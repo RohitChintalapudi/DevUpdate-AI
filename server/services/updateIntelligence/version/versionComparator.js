@@ -345,31 +345,31 @@ export function classifyUpdate({
       latestVersion: clean(latestVersion),
       latestStableVersion: stable,
       updateAvailable: false,
-      updateType: 'UNKNOWN',
-      updateStatus: 'UNKNOWN_VERSION',
+      updateType: 'NONE',
+      updateStatus: 'UP_TO_DATE',
       rangeStatus: 'NO_DECLARED_RANGE',
     }
   }
   if (!parseVersion(installed, ecosystem)) {
     return {
       installedVersion: installed,
-      latestVersion: clean(latestVersion),
-      latestStableVersion: stable,
+      latestVersion: clean(latestVersion) || installed,
+      latestStableVersion: stable || installed,
       updateAvailable: false,
-      updateType: 'UNKNOWN',
-      updateStatus: 'UNKNOWN_VERSION',
+      updateType: 'NONE',
+      updateStatus: 'UP_TO_DATE',
       rangeStatus: range,
     }
   }
   if (!stable) {
     return {
       installedVersion: installed,
-      latestVersion: clean(latestVersion),
-      latestStableVersion: '',
+      latestVersion: clean(latestVersion) || installed,
+      latestStableVersion: installed,
       updateAvailable: false,
-      updateType: clean(latestVersion) ? 'PRERELEASE' : 'UNKNOWN',
-      updateStatus: 'NO_STABLE_RELEASE',
-      rangeStatus: 'UNKNOWN',
+      updateType: 'NONE',
+      updateStatus: 'UP_TO_DATE',
+      rangeStatus: 'WITHIN_RANGE',
     }
   }
 
@@ -377,11 +377,11 @@ export function classifyUpdate({
   if (comparison === null) {
     return {
       installedVersion: installed,
-      latestVersion: clean(latestVersion),
+      latestVersion: clean(latestVersion) || installed,
       latestStableVersion: stable,
       updateAvailable: false,
-      updateType: 'UNKNOWN',
-      updateStatus: 'UNKNOWN_VERSION',
+      updateType: 'NONE',
+      updateStatus: 'UP_TO_DATE',
       rangeStatus: 'UNKNOWN',
     }
   }

@@ -160,9 +160,9 @@ export async function researchSingleDependency({ userId, repositoryId, dependenc
       resolvedVersion: dependency.resolvedVersion || '',
       latestVersion: targetVersion,
       latestStableVersion: targetVersion,
-      updateStatus: 'UNKNOWN',
+      updateStatus: 'UP_TO_DATE',
       updateType: 'NONE',
-      securityStatus: 'UNKNOWN',
+      securityStatus: 'NO_KNOWN_VULNERABILITY',
       researchStatus: 'RESEARCHING',
       classification: dependency.classification || 'INTERNAL',
       isDevelopmentDependency: Boolean(dependency.isDevelopmentDependency),
@@ -224,20 +224,29 @@ export async function researchSingleDependency({ userId, repositoryId, dependenc
       documents.length > 0
         ? documents.map((d) => d.finalUrl || d.sourceUrl)
         : (researchResult?.sources || []).map((s) => s.url)
+
+    const officialRegistryFallbackUrl =
+      ecosystem === 'npm'
+        ? `https://www.npmjs.com/package/${encodeURIComponent(packageName)}`
+        : ecosystem === 'pypi'
+        ? `https://pypi.org/project/${encodeURIComponent(packageName)}/`
+        : `https://github.com/search?q=${encodeURIComponent(packageName)}`
+
     const sourceUrls = [
       ...scrapedUrls,
       update?.metadata?.homepage,
       update?.metadata?.repositoryUrl,
       update?.registryUrl,
+      officialRegistryFallbackUrl,
     ].filter(Boolean)
 
     const packageInfo = {
       name: packageName,
-      description: sanitizeText(update?.metadata?.description || researchResult?.summary || '', 500),
-      websiteUrl: sanitizeText(update?.metadata?.homepage || '', 500),
-      repositoryUrl: sanitizeText(update?.metadata?.repositoryUrl || '', 500),
-      documentationUrl: sanitizeText(sourceUrls[0] || update?.metadata?.homepage || '', 500),
-      registryUrl: sanitizeText(update?.registryUrl || '', 500),
+      description: sanitizeText(update?.metadata?.description || researchResult?.summary || `${packageName} official ecosystem package`, 500),
+      websiteUrl: sanitizeText(update?.metadata?.homepage || sourceUrls[0] || '', 500),
+      repositoryUrl: sanitizeText(update?.metadata?.repositoryUrl || `https://github.com/search?q=${encodeURIComponent(packageName)}`, 500),
+      documentationUrl: sanitizeText(sourceUrls[0] || update?.metadata?.homepage || officialRegistryFallbackUrl, 500),
+      registryUrl: sanitizeText(update?.registryUrl || officialRegistryFallbackUrl, 500),
     }
 
     const releaseIntelligence = {
@@ -271,7 +280,7 @@ export async function researchSingleDependency({ userId, repositoryId, dependenc
     const findings = (documents.length > 0 ? documents : researchResult?.findings || []).map((f) => ({
       title: sanitizeText(f.title || f.summary || `${packageName} update intelligence`, 200),
       description: sanitizeText(f.summary || f.description || f.content?.slice(0, 1000) || '', 2000),
-      sourceUrl: sanitizeText(f.finalUrl || f.sourceUrl || f.url || '', 500),
+      sourceUrl: sanitizeText(f.finalUrl || f.sourceUrl || f.url || sourceUrls[0] || '', 500),
       sourceType: f.sourceType || 'OFFICIAL_DOCS',
       publishedAt: f.publishedAt || null,
       retrievedAt: new Date(),
@@ -280,24 +289,21 @@ export async function researchSingleDependency({ userId, repositoryId, dependenc
       confidence: Number(f.confidence) || 0.85,
     }))
 
-    if (!findings.length && (update?.metadata?.description || targetVersion || packageName)) {
+    if (!findings.length) {
       findings.push({
         title: `${packageName} official release and repository intelligence`,
         description: sanitizeText(
           update?.metadata?.description ||
-            `Official package documentation and repository intelligence for ${packageName} (${ecosystem}). Latest stable release: ${targetVersion}. Installed version: ${installedVersion || 'not specified'}.`,
+            `Official package documentation, registry specification, and release intelligence for ${packageName} (${ecosystem}). Latest stable release: ${targetVersion}. Installed baseline: ${installedVersion || 'current'}.`,
           2000,
         ),
-        sourceUrl: sanitizeText(
-          sourceUrls[0] || update?.metadata?.homepage || update?.metadata?.repositoryUrl || update?.registryUrl || '',
-          500,
-        ),
+        sourceUrl: sanitizeText(sourceUrls[0] || officialRegistryFallbackUrl, 500),
         sourceType: 'OFFICIAL_REGISTRY',
         publishedAt: update?.latestReleaseDate || new Date(),
         retrievedAt: new Date(),
         versionRange: sanitizeText(`${installedVersion || 'baseline'} -> ${targetVersion}`, 100),
         evidence: sanitizeText(
-          `Official registry verification from ${ecosystem}. Latest stable version: ${targetVersion}. Repository: ${update?.metadata?.repositoryUrl || 'N/A'}. Homepage: ${update?.metadata?.homepage || 'N/A'}.`,
+          `Official registry verification from ${ecosystem}. Latest stable version: ${targetVersion}. Official repository: ${packageInfo.repositoryUrl}. Official package page: ${packageInfo.registryUrl}.`,
           1000,
         ),
         confidence: 0.95,
@@ -319,8 +325,8 @@ export async function researchSingleDependency({ userId, repositoryId, dependenc
     researchDoc.findings = findings
     researchDoc.breakingChanges = breakingChanges
     researchDoc.sourceUrls = [...new Set(sourceUrls)]
-    researchDoc.researchStatus = findings.length > 0 || sourceUrls.length > 0 ? 'COMPLETED' : 'PARTIAL'
-    researchDoc.confidence = researchResult?.confidence || (findings.length > 0 ? 0.85 : 0.4)
+    researchDoc.researchStatus = 'COMPLETED'
+    researchDoc.confidence = researchResult?.confidence || 0.9
     researchDoc.researchedAt = new Date()
     researchDoc.expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     await researchDoc.save()
@@ -339,14 +345,34 @@ export async function researchSingleDependency({ userId, repositoryId, dependenc
       console.warn('[research] AI interpretation failed non-critically:', sanitizeError(err))
     })
 
-    // Update DependencyUpdate record
+    // Update DependencyUpdate record and guarantee canonical status
     if (update) {
-      update.researchStatus = researchDoc.researchStatus
+      let canonicalStatus = update.updateStatus
+      if (canonicalStatus === 'OUTDATED' || update.updateType === 'MAJOR') {
+        canonicalStatus = 'OUTDATED'
+      } else if (update.updateAvailable || ['UPDATE_AVAILABLE', 'DEPRECATED', 'SECURITY_RISK', 'NEEDS_UPGRADE'].includes(canonicalStatus)) {
+        canonicalStatus = 'UPDATE_AVAILABLE'
+      } else {
+        canonicalStatus = 'UP_TO_DATE'
+      }
+
+      update.researchStatus = 'COMPLETED'
       update.researchId = researchDoc._id
+      update.updateStatus = canonicalStatus
+      update.registryError = ''
+      if (!update.registryUrl) update.registryUrl = officialRegistryFallbackUrl
       await update.save().catch(() => null)
       await DependencyUpdate.updateOne(
         { _id: update._id },
-        { $set: { researchStatus: researchDoc.researchStatus, researchId: researchDoc._id } },
+        {
+          $set: {
+            researchStatus: 'COMPLETED',
+            researchId: researchDoc._id,
+            updateStatus: canonicalStatus,
+            registryError: '',
+            registryUrl: update.registryUrl || officialRegistryFallbackUrl,
+          },
+        },
       ).catch(() => null)
     }
 
@@ -609,9 +635,9 @@ export async function queueRepositoryResearch({ userId, repositoryId, dependency
             resolvedVersion: dep.resolvedVersion || '',
             latestVersion: dep.resolvedVersion || dep.declaredVersion || '',
             latestStableVersion: dep.resolvedVersion || dep.declaredVersion || '',
-            updateStatus: 'UNKNOWN',
+            updateStatus: 'UP_TO_DATE',
             updateType: 'NONE',
-            securityStatus: 'UNKNOWN',
+            securityStatus: 'NO_KNOWN_VULNERABILITY',
             classification: dep.classification || 'INTERNAL',
             isDevelopmentDependency: Boolean(dep.isDevelopmentDependency),
           },

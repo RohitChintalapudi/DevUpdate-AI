@@ -8,6 +8,7 @@ import {
   ecosystemTone,
   formatDate,
   formatVersion,
+  getCanonicalUpdateStatus,
   researchStatusLabel,
   researchStatusTone,
   securityStatusLabel,
@@ -126,11 +127,16 @@ export default function UpdateTable({
                     {latestCompatible}
                   </td>
 
-                  {/* 6. Update Status */}
+                  {/* 6. Update Status (Strictly Up to Date, Needs Upgrade, or Outdated) */}
                   <td className="px-4 py-4">
-                    <Badge tone={updateStatusTone[update.updateStatus] || 'neutral'} dot>
-                      {updateStatusLabel[update.updateStatus] || update.updateStatus}
-                    </Badge>
+                    {(() => {
+                      const canonical = getCanonicalUpdateStatus(update)
+                      return (
+                        <Badge tone={updateStatusTone[canonical] || 'neutral'} dot>
+                          {updateStatusLabel[canonical] || 'Up to Date'}
+                        </Badge>
+                      )
+                    })()}
                   </td>
 
                   {/* 7. Update Type */}

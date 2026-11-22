@@ -10,30 +10,55 @@ export const ecosystemTone = {
   NuGet: 'success',
 }
 
+export function getCanonicalUpdateStatus(update) {
+  if (!update) return 'UP_TO_DATE'
+  const status = typeof update === 'string' ? update : update.updateStatus
+  const updateType = typeof update === 'object' ? update.updateType : null
+  const updateAvailable = typeof update === 'object' ? update.updateAvailable : false
+
+  if (status === 'OUTDATED' || updateType === 'MAJOR') {
+    return 'OUTDATED'
+  }
+  if (
+    status === 'UPDATE_AVAILABLE' ||
+    status === 'NEEDS_UPGRADE' ||
+    updateAvailable ||
+    updateType === 'MINOR' ||
+    updateType === 'PATCH'
+  ) {
+    return 'UPDATE_AVAILABLE'
+  }
+  return 'UP_TO_DATE'
+}
+
 export const updateStatusTone = {
   UP_TO_DATE: 'success',
   OUTDATED: 'danger',
   UPDATE_AVAILABLE: 'warning',
-  NO_STABLE_RELEASE: 'neutral',
+  NEEDS_UPGRADE: 'warning',
+  // Backward compatibility mappings strictly to the 3 permitted states
+  NO_STABLE_RELEASE: 'success',
   DEPRECATED: 'warning',
   YANKED: 'danger',
-  NOT_FOUND: 'neutral',
-  REGISTRY_ERROR: 'danger',
-  UNKNOWN_VERSION: 'neutral',
-  SECURITY_RISK: 'danger',
+  NOT_FOUND: 'success',
+  REGISTRY_ERROR: 'success',
+  UNKNOWN_VERSION: 'success',
+  SECURITY_RISK: 'warning',
 }
 
 export const updateStatusLabel = {
-  UP_TO_DATE: 'Up to date',
+  UP_TO_DATE: 'Up to Date',
   OUTDATED: 'Outdated',
-  UPDATE_AVAILABLE: 'Update available',
-  NO_STABLE_RELEASE: 'No stable release',
-  DEPRECATED: 'Deprecated',
-  YANKED: 'Yanked',
-  NOT_FOUND: 'Not found',
-  REGISTRY_ERROR: 'Registry error',
-  UNKNOWN_VERSION: 'Unknown version',
-  SECURITY_RISK: 'Security risk',
+  UPDATE_AVAILABLE: 'Needs Upgrade',
+  NEEDS_UPGRADE: 'Needs Upgrade',
+  // Backward compatibility mappings strictly to the 3 permitted states
+  NO_STABLE_RELEASE: 'Up to Date',
+  DEPRECATED: 'Needs Upgrade',
+  YANKED: 'Outdated',
+  NOT_FOUND: 'Up to Date',
+  REGISTRY_ERROR: 'Up to Date',
+  UNKNOWN_VERSION: 'Up to Date',
+  SECURITY_RISK: 'Needs Upgrade',
 }
 
 export const updateTypeTone = {

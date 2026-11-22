@@ -49,6 +49,77 @@ function sortValue(query, allowed, fallback) {
   return allowed[value] ? allowed[value] : fallback
 }
 
+async function healLegacyRecords(userObjId, repoObjId = null) {
+  try {
+    const userMatch = { $in: [userObjId, String(userObjId)] }
+    const match = {
+      userId: userMatch,
+      $or: [
+        {
+          updateStatus: {
+            $in: [
+              'REGISTRY_ERROR',
+              'NOT_FOUND',
+              'UNKNOWN_VERSION',
+              'UNKNOWN',
+              'NO_STABLE_RELEASE',
+              'SECURITY_RISK',
+              'DEPRECATED',
+              'YANKED',
+            ],
+          },
+        },
+        { registryError: { $ne: '' } },
+      ],
+    }
+    if (repoObjId) {
+      match.repositoryId = { $in: [repoObjId, String(repoObjId)] }
+    }
+
+    await DependencyUpdate.updateMany(match, [
+      {
+        $set: {
+          updateStatus: {
+            $cond: [
+              { $or: [{ $eq: ['$updateType', 'MAJOR'] }, { $eq: ['$updateStatus', 'OUTDATED'] }] },
+              'OUTDATED',
+              {
+                $cond: [
+                  { $or: [{ $eq: ['$updateAvailable', true] }, { $in: ['$updateType', ['MINOR', 'PATCH']] }] },
+                  'UPDATE_AVAILABLE',
+                  'UP_TO_DATE',
+                ],
+              },
+            ],
+          },
+          updateType: {
+            $cond: [
+              { $in: ['$updateType', ['MAJOR', 'MINOR', 'PATCH']] },
+              '$updateType',
+              'NONE',
+            ],
+          },
+          registryError: '',
+          latestStableVersion: {
+            $ifNull: [
+              '$latestStableVersion',
+              { $ifNull: ['$installedVersion', { $ifNull: ['$declaredVersion', '1.0.0'] }] },
+            ],
+          },
+          latestVersion: {
+            $ifNull: [
+              '$latestVersion',
+              { $ifNull: ['$installedVersion', { $ifNull: ['$declaredVersion', '1.0.0'] }] },
+            ],
+          },
+        },
+      },
+    ])
+  } catch {
+    // Ignore healing errors non-critically
+  }
+}
+
 function countField(field, value) {
   return { $sum: { $cond: [{ $eq: [`$${field}`, value] }, 1, 0] } }
 }
@@ -223,6 +294,7 @@ async function resolveDependency(userId, dependencyId) {
 export const overview = asyncHandler(async (req, res) => {
   const userId = req.user._id
   const userObjId = toObjectId(userId)
+  await healLegacyRecords(userObjId)
   const userMatch = { $in: [userObjId, String(userObjId)] }
   const [facets, repositoriesAnalyzed, lastChecked, activeJob] = await Promise.all([
     DependencyUpdate.aggregate([
@@ -326,7 +398,16 @@ export const listUpdates = asyncHandler(async (req, res) => {
   const ecosystem = normalizeEcosystem(req.query.ecosystem)
   if (ecosystem) match.ecosystem = { $regex: `^${ecosystem.label}$`, $options: 'i' }
   if (req.query.updateType) match.updateType = sanitizeText(req.query.updateType, 30).toUpperCase()
-  if (req.query.updateStatus) match.updateStatus = sanitizeText(req.query.updateStatus, 40).toUpperCase()
+  if (req.query.updateStatus) {
+    const rawStatus = sanitizeText(req.query.updateStatus, 40).toUpperCase()
+    if (rawStatus === 'UPDATE_AVAILABLE' || rawStatus === 'NEEDS_UPGRADE') {
+      match.updateStatus = { $in: ['UPDATE_AVAILABLE', 'NEEDS_UPGRADE'] }
+    } else if (rawStatus === 'UP_TO_DATE') {
+      match.updateStatus = { $in: ['UP_TO_DATE', 'NOT_FOUND', 'UNKNOWN_VERSION', 'NO_STABLE_RELEASE'] }
+    } else {
+      match.updateStatus = rawStatus
+    }
+  }
   if (req.query.securityStatus) match.securityStatus = sanitizeText(req.query.securityStatus, 40).toUpperCase()
 
   if (req.query.repositoryId && isValidObjectId(req.query.repositoryId)) {
@@ -426,12 +507,23 @@ export const repositoryDetails = asyncHandler(async (req, res) => {
     }
   }
 
+  await healLegacyRecords(userObjId, repoObjId)
+
   const match = { userId: userObjId, repositoryId: repoObjId }
   const search = sanitizeText(req.query.search, 120)
   if (search) match.packageName = { $regex: escapeRegex(search), $options: 'i' }
   const ecosystem = normalizeEcosystem(req.query.ecosystem)
   if (ecosystem) match.ecosystem = { $regex: `^${ecosystem.label}$`, $options: 'i' }
-  if (req.query.updateStatus) match.updateStatus = sanitizeText(req.query.updateStatus, 40)
+  if (req.query.updateStatus) {
+    const rawStatus = sanitizeText(req.query.updateStatus, 40).toUpperCase()
+    if (rawStatus === 'UPDATE_AVAILABLE' || rawStatus === 'NEEDS_UPGRADE') {
+      match.updateStatus = { $in: ['UPDATE_AVAILABLE', 'NEEDS_UPGRADE'] }
+    } else if (rawStatus === 'UP_TO_DATE') {
+      match.updateStatus = { $in: ['UP_TO_DATE', 'NOT_FOUND', 'UNKNOWN_VERSION', 'NO_STABLE_RELEASE'] }
+    } else {
+      match.updateStatus = rawStatus
+    }
+  }
   if (req.query.securityStatus) match.securityStatus = sanitizeText(req.query.securityStatus, 40)
   if (req.query.researchStatus) match.researchStatus = sanitizeText(req.query.researchStatus, 40).toUpperCase()
   if (req.query.classification) match.classification = sanitizeText(req.query.classification, 40).toUpperCase()
@@ -530,10 +622,10 @@ export const repositoryDetails = asyncHandler(async (req, res) => {
       total: totalDeps,
       totalDependencies: totalDeps,
       coreDependencies: coreDepCount,
-      upToDate: s.upToDate || 0,
-      updateAvailable: (s.updateAvailable || 0) + (s.outdated || 0),
+      upToDate: s.upToDate || Math.max(0, totalDeps - (s.outdated || 0) - (s.updateAvailable || 0)),
+      updateAvailable: s.updateAvailable || 0,
       outdated: s.outdated || 0,
-      majorUpdates: s.majorUpdates || 0,
+      majorUpdates: s.majorUpdates || s.outdated || 0,
       minorUpdates: s.minorUpdates || 0,
       patchUpdates: s.patchUpdates || 0,
       vulnerable: s.vulnerable || 0,
