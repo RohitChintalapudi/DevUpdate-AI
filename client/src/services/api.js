@@ -54,7 +54,7 @@ export const authApi = {
 }
 
 export const githubApi = {
-  connect: () => api.get('/github/connect').then((res) => res.data),
+  connect: (params) => api.get('/github/connect', { params }).then((res) => res.data),
   status: () => api.get('/github/status').then((res) => res.data),
   disconnect: () => api.delete('/github/disconnect').then((res) => res.data),
 }

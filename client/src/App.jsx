@@ -47,10 +47,18 @@ function ProtectedRoute({ children }) {
   return children
 }
 
+function LandingRoute() {
+  const location = useLocation()
+  if (location.search.includes('github=')) {
+    return <Navigate to={`/dashboard/repositories${location.search}`} replace />
+  }
+  return <Landing />
+}
+
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<Landing />} />
+      <Route path="/" element={<LandingRoute />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />

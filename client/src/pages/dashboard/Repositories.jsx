@@ -159,7 +159,10 @@ export default function Repositories() {
     setPhase('connecting')
     setConnectionError('')
     try {
-      const data = await githubApi.connect()
+      const data = await githubApi.connect({
+        origin: window.location.origin,
+        returnTo: '/dashboard/repositories',
+      })
       window.location.assign(data.url)
     } catch (error) {
       setPhase('failed')

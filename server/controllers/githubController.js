@@ -40,14 +40,62 @@ function cookieOptions() {
     httpOnly: true,
     sameSite: process.env.COOKIE_SAME_SITE === 'strict' ? 'strict' : 'lax',
     secure: process.env.COOKIE_SECURE === 'true',
-    path: '/api/github',
+    path: '/',
     maxAge: STATE_MAX_AGE,
   }
 }
 
-function redirectWith(status, message) {
-  const base = (process.env.CLIENT_URL || 'http://localhost:5173').split(',')[0].trim()
-  const url = new URL(base)
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean)
+
+function resolveDefaultClientUrl() {
+  return allowedOrigins[0] || 'http://localhost:5173'
+}
+
+function getSafeClientOrigin(candidate, req) {
+  if (candidate && typeof candidate === 'string') {
+    try {
+      const parsed = new URL(candidate)
+      const origin = parsed.origin
+      if (allowedOrigins.includes(origin)) return origin
+      if (process.env.NODE_ENV !== 'production' && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+        return origin
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const headerOrigin = req?.headers?.origin || req?.headers?.referer
+  if (headerOrigin && typeof headerOrigin === 'string') {
+    try {
+      const parsed = new URL(headerOrigin)
+      const origin = parsed.origin
+      if (allowedOrigins.includes(origin)) return origin
+      if (process.env.NODE_ENV !== 'production' && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+        return origin
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return resolveDefaultClientUrl()
+}
+
+function sanitizeReturnTo(path) {
+  if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//')) {
+    return '/dashboard/repositories'
+  }
+  return path
+}
+
+function redirectWith(status, message, clientOrigin, returnTo = '/dashboard/repositories') {
+  const base = clientOrigin || resolveDefaultClientUrl()
+  const targetPath = sanitizeReturnTo(returnTo)
+  const url = new URL(targetPath, base)
   url.searchParams.set('github', status)
   url.searchParams.set('message', sanitizeText(message, 160))
   return url.toString()
@@ -55,10 +103,15 @@ function redirectWith(status, message) {
 
 export const connect = asyncHandler(async (req, res) => {
   assertGithubConfigured()
+  const clientOrigin = getSafeClientOrigin(req.query.origin || req.body?.origin, req)
+  const returnTo = sanitizeReturnTo(req.query.returnTo || req.body?.returnTo)
+
   const state = jwt.sign(
     {
       purpose: 'github-oauth',
       sub: req.user._id.toString(),
+      origin: clientOrigin,
+      returnTo,
       nonce: crypto.randomBytes(16).toString('hex'),
     },
     process.env.JWT_SECRET,
@@ -74,34 +127,44 @@ export const connect = asyncHandler(async (req, res) => {
 })
 
 export const callback = asyncHandler(async (req, res) => {
-  res.clearCookie(STATE_COOKIE, cookieOptions())
-  if (req.query.error) {
-    return res.redirect(redirectWith('error', 'GitHub sign-in was cancelled or failed.'))
-  }
-
   const state = typeof req.query.state === 'string' ? req.query.state : ''
   const cookieState = typeof req.cookies?.[STATE_COOKIE] === 'string' ? req.cookies[STATE_COOKIE] : ''
-  if (!state || !cookieState || state !== cookieState) {
-    return res.redirect(redirectWith('error', 'GitHub authorization state was invalid or expired.'))
+  res.clearCookie(STATE_COOKIE, cookieOptions())
+
+  let payload = null
+  if (state) {
+    try {
+      payload = jwt.verify(state, process.env.JWT_SECRET)
+    } catch {
+      payload = null
+    }
   }
 
-  let payload
-  try {
-    payload = jwt.verify(state, process.env.JWT_SECRET)
-  } catch {
-    return res.redirect(redirectWith('error', 'GitHub authorization state was invalid or expired.'))
+  const clientOrigin = getSafeClientOrigin(payload?.origin, req)
+  const returnTo = sanitizeReturnTo(payload?.returnTo)
+
+  if (req.query.error) {
+    return res.redirect(redirectWith('error', 'GitHub sign-in was cancelled or failed.', clientOrigin, returnTo))
   }
+
+  // Validate state JWT payload
   if (
-    payload?.purpose !== 'github-oauth' ||
-    typeof payload?.sub !== 'string' ||
+    !payload ||
+    payload.purpose !== 'github-oauth' ||
+    typeof payload.sub !== 'string' ||
     !payload.sub
   ) {
-    return res.redirect(redirectWith('error', 'GitHub authorization state was invalid or expired.'))
+    return res.redirect(redirectWith('error', 'GitHub authorization state was invalid or expired.', clientOrigin, returnTo))
+  }
+
+  // Double-submit cookie verification when cookie is provided
+  if (cookieState && state !== cookieState) {
+    return res.redirect(redirectWith('error', 'GitHub authorization state was invalid or expired.', clientOrigin, returnTo))
   }
 
   const user = await User.findById(payload.sub)
   if (!user) {
-    return res.redirect(redirectWith('error', 'Your DevUpdate AI session expired. Sign in again.'))
+    return res.redirect(redirectWith('error', 'Your DevUpdate AI session expired. Sign in again.', clientOrigin, returnTo))
   }
 
   try {
@@ -126,9 +189,9 @@ export const callback = asyncHandler(async (req, res) => {
     )
 
     await syncRepositories(user._id.toString())
-    return res.redirect(redirectWith('connected', 'GitHub connected successfully.'))
+    return res.redirect(redirectWith('connected', 'GitHub connected successfully.', clientOrigin, returnTo))
   } catch (error) {
-    return res.redirect(redirectWith('error', error.message || 'Could not complete GitHub sign-in.'))
+    return res.redirect(redirectWith('error', error.message || 'Could not complete GitHub sign-in.', clientOrigin, returnTo))
   }
 })
 
