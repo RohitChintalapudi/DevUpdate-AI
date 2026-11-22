@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { LuArrowLeft, LuCalendarDays, LuCircleCheck, LuExternalLink, LuGitBranch, LuPackage, LuRefreshCw, LuShieldAlert, LuTriangleAlert } from 'react-icons/lu'
+import { LuArrowLeft, LuCalendarDays, LuCircleCheck, LuExternalLink, LuFlame, LuGitBranch, LuPackage, LuRefreshCw, LuShieldAlert, LuSparkles, LuTriangleAlert } from 'react-icons/lu'
 import Badge from '../../components/common/Badge'
 import Button from '../../components/common/Button'
 import EmptyState from '../../components/common/EmptyState'
 import PageHeader from '../../components/common/PageHeader'
 import Skeleton from '../../components/common/Skeleton'
 import Toast from '../../components/common/Toast'
+import DependencyResearchDrawer from '../../components/dashboard/DependencyResearchDrawer'
 import { getErrorMessage, updatesApi } from '../../services/api'
 import {
   ecosystemTone,
@@ -90,6 +91,7 @@ export default function DependencyUpdateDetail() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [checking, setChecking] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [notFound, setNotFound] = useState(false)
   const [toast, setToast] = useState(null)
 
@@ -189,6 +191,14 @@ export default function DependencyUpdateDetail() {
             <Link to="/dashboard/updates">
               <Button variant="ghost" size="sm" leftIcon={LuArrowLeft}>All updates</Button>
             </Link>
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={LuFlame}
+              onClick={() => setDrawerOpen(true)}
+            >
+              Firecrawl Research & AI
+            </Button>
             <Button
               variant="primary"
               size="sm"
@@ -359,6 +369,14 @@ export default function DependencyUpdateDetail() {
           </p>
         )}
       </div>
+
+      <DependencyResearchDrawer
+        dependencyId={update.dependencyId || update._id}
+        repositoryId={update.repositoryId?._id || update.repositoryId}
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onResearchUpdated={load}
+      />
 
       <Toast toast={toast} onDismiss={() => setToast(null)} />
     </div>

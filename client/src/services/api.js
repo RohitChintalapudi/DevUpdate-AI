@@ -112,6 +112,20 @@ export const updatesApi = {
   checkAll: () => api.post('/updates/check-all').then((res) => res.data),
   checkDependency: (dependencyId) =>
     api.post(`/updates/dependency/${dependencyId}/check`).then((res) => res.data),
+  researchRepository: (repositoryId, payload = {}) =>
+    api.post(`/updates/repository/${repositoryId}/research`, payload).then((res) => res.data),
+  researchStatus: (repositoryId) =>
+    api.get(`/updates/repository/${repositoryId}/research-status`).then((res) => res.data),
+  dependencies: (repositoryId, params) =>
+    api.get(`/updates/repository/${repositoryId}/dependencies`, { params }).then((res) => res.data),
+  researchDependency: (dependencyId, payload = {}) =>
+    api.post(`/updates/dependency/${dependencyId}/research`, payload).then((res) => res.data),
+  getResearch: (dependencyId) =>
+    api.get(`/updates/dependency/${dependencyId}/research`).then((res) => res.data),
+  analyzeDependency: (dependencyId) =>
+    api.post(`/updates/dependency/${dependencyId}/analyze`).then((res) => res.data),
+  getAnalysis: (dependencyId) =>
+    api.get(`/updates/dependency/${dependencyId}/analysis`).then((res) => res.data),
 }
 
 export const memoryApi = {

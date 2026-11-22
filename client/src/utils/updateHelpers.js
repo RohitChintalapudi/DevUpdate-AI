@@ -67,6 +67,56 @@ export const severityTone = {
   UNKNOWN: 'neutral',
 }
 
+export const researchStatusTone = {
+  NOT_RESEARCHED: 'neutral',
+  QUEUED: 'warning',
+  RESEARCHING: 'cyan',
+  COMPLETED: 'success',
+  PARTIAL: 'warning',
+  FAILED: 'danger',
+}
+
+export const researchStatusLabel = {
+  NOT_RESEARCHED: 'Not Researched',
+  QUEUED: 'Queued',
+  RESEARCHING: 'Researching…',
+  COMPLETED: 'Completed',
+  PARTIAL: 'Partial',
+  FAILED: 'Failed',
+}
+
+export const classificationTone = {
+  CORE: 'cyan',
+  SUPPORTING: 'neutral',
+  DEVELOPMENT: 'violet',
+  TRANSITIVE: 'warning',
+  UNKNOWN: 'neutral',
+}
+
+export const classificationLabel = {
+  CORE: 'Core',
+  SUPPORTING: 'Supporting',
+  DEVELOPMENT: 'Dev',
+  TRANSITIVE: 'Transitive',
+  UNKNOWN: 'Unknown',
+}
+
+export const recommendationTone = {
+  UPGRADE_RECOMMENDED: 'success',
+  UPGRADE_WITH_CAUTION: 'warning',
+  REVIEW_BEFORE_UPGRADE: 'cyan',
+  DEFER_UPGRADE: 'danger',
+  INSUFFICIENT_EVIDENCE: 'neutral',
+}
+
+export const recommendationLabel = {
+  UPGRADE_RECOMMENDED: 'Upgrade Recommended',
+  UPGRADE_WITH_CAUTION: 'Upgrade with Caution',
+  REVIEW_BEFORE_UPGRADE: 'Review Before Upgrade',
+  DEFER_UPGRADE: 'Defer Upgrade',
+  INSUFFICIENT_EVIDENCE: 'Insufficient Evidence',
+}
+
 export function formatDate(value, includeTime = false) {
   if (!value) return '—'
   const date = new Date(value)

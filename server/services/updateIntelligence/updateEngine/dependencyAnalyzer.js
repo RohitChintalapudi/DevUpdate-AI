@@ -1,3 +1,4 @@
+import semver from 'semver'
 import { normalizeEcosystem } from '../../../constants/updateEcosystems.js'
 import { AppError } from '../../../utils/errors.js'
 import { sanitizeError, sanitizeText } from '../../../utils/sanitize.js'
@@ -9,6 +10,13 @@ import { classifyUpdate } from '../version/versionComparator.js'
 const CHECK_INTERVAL_MS = Number(process.env.UPDATE_CHECK_INTERVAL_MS) || 6 * 60 * 60 * 1000
 
 function baseRecord(dependency, checkedAt) {
+  const isDev = Boolean(dependency.isDevelopmentDependency || dependency.dependencyType === 'development')
+  const classification = isDev
+    ? 'DEVELOPMENT'
+    : dependency.dependencyType === 'transitive'
+    ? 'TRANSITIVE'
+    : 'CORE'
+
   return {
     dependencyId: dependency._id,
     userId: dependency.userId,
@@ -18,6 +26,8 @@ function baseRecord(dependency, checkedAt) {
     declaredVersion: dependency.declaredVersion || '',
     resolvedVersion: dependency.resolvedVersion || '',
     installedVersion: dependency.resolvedVersion || dependency.declaredVersion || '',
+    classification,
+    latestCompatibleVersion: '',
     lastCheckedAt: checkedAt,
     nextCheckAt: new Date(checkedAt.getTime() + CHECK_INTERVAL_MS),
     registryError: '',
@@ -101,10 +111,28 @@ export async function analyzeDependency(dependency) {
     updateStatus = 'SECURITY_RISK'
   }
 
+  let latestCompatibleVersion = ''
+  if (classification.rangeStatus === 'WITHIN_RANGE') {
+    latestCompatibleVersion = metadata.latestStableVersion || metadata.latestVersion || ''
+  } else if (metadata.versionHistory?.length && record.declaredVersion) {
+    try {
+      const versions = metadata.versionHistory.map((v) => v.version).filter(Boolean)
+      if (['npm', 'crates', 'packagist', 'rubygems'].includes(normalized.key) && semver.validRange(record.declaredVersion)) {
+        latestCompatibleVersion = semver.maxSatisfying(versions, record.declaredVersion) || ''
+      }
+    } catch {
+      latestCompatibleVersion = ''
+    }
+  }
+  if (!latestCompatibleVersion) {
+    latestCompatibleVersion = record.installedVersion || ''
+  }
+
   return {
     ...record,
     latestVersion: metadata.latestVersion,
     latestStableVersion: metadata.latestStableVersion,
+    latestCompatibleVersion,
     latestReleaseDate: metadata.latestReleaseDate ? new Date(metadata.latestReleaseDate) : null,
     updateAvailable: classification.updateAvailable,
     updateType: classification.updateType,
