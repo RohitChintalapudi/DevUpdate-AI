@@ -189,15 +189,13 @@ export default function UpdateOverview() {
             </div>
           ) : null}
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard index={0} label="Repositories analyzed" value={stats.repositoriesAnalyzed} description="With update intelligence" icon={LuGitBranch} tone="violet" />
-            <StatCard index={1} label="Dependencies" value={stats.totalDependencies} description="Tracked package versions" icon={LuPackage} tone="cyan" />
-            <StatCard index={2} label="Up to date" value={stats.upToDate} description="Already on the latest stable release" icon={LuSparkles} tone="success" />
-            <StatCard index={3} label="Outdated" value={stats.outdated} description="Outside the declared range or major behind" icon={LuTrendingUp} tone="danger" />
-            <StatCard index={4} label="Major updates" value={stats.majorUpdates} description="Potentially breaking releases" icon={LuArrowUpRight} tone="danger" />
-            <StatCard index={5} label="Minor updates" value={stats.minorUpdates} description="Backward-compatible features" icon={LuTrendingUp} tone="warning" />
-            <StatCard index={6} label="Patch updates" value={stats.patchUpdates} description="Fixes and maintenance releases" icon={LuRefreshCw} tone="cyan" />
-            <StatCard index={7} label="Vulnerable" value={stats.vulnerableDependencies} description="Installed versions with advisories" icon={LuShieldAlert} tone="danger" />
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+            <StatCard index={0} label="Repositories" value={stats.repositoriesAnalyzed} description="Analyzed" icon={LuGitBranch} tone="violet" />
+            <StatCard index={1} label="Dependencies" value={stats.totalDependencies} description="Tracked packages" icon={LuPackage} tone="cyan" />
+            <StatCard index={2} label="Up to date" value={stats.upToDate} description="Latest stable" icon={LuSparkles} tone="success" />
+            <StatCard index={3} label="Available" value={stats.updateAvailable || stats.outdated || 0} description="Need updating" icon={LuTrendingUp} tone="warning" />
+            <StatCard index={4} label="Major updates" value={stats.majorUpdates} description="Breaking risks" icon={LuArrowUpRight} tone="danger" />
+            <StatCard index={5} label="Vulnerable" value={stats.vulnerableDependencies} description="Security risks" icon={LuShieldAlert} tone="danger" />
           </div>
 
           <div className="mt-6">

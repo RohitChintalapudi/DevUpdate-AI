@@ -78,7 +78,7 @@ async function repositorySummaries(userId, query = {}) {
       },
     ]),
     Repository.find({ userId: userObjId })
-      .select('fullName name owner htmlUrl language visibility updateCheckStatus lastUpdateCheckAt lastScannedAt')
+      .select('fullName name owner htmlUrl language visibility defaultBranch branch scanStatus updateCheckStatus lastUpdateCheckAt lastScannedAt lastUpdated createdAt')
       .lean(),
     Dependency.aggregate([
       { $match: { userId: userMatch } },
@@ -138,9 +138,13 @@ async function repositorySummaries(userId, query = {}) {
       htmlUrl: repository.htmlUrl,
       language: repository.language,
       visibility: repository.visibility,
+      defaultBranch: repository.defaultBranch || repository.branch || 'main',
+      scanStatus: repository.scanStatus || 'NOT_SCANNED',
       updateCheckStatus: repository.updateCheckStatus,
       lastUpdateCheckAt: repository.lastUpdateCheckAt || item.lastCheckedAt || null,
-      lastAnalyzedAt: resItem.lastResearchedAt || repository.lastScannedAt || null,
+      lastAnalyzedAt: repository.lastScannedAt || resItem.lastResearchedAt || null,
+      lastScannedAt: repository.lastScannedAt || null,
+      lastUpdated: repository.lastUpdated || repository.updatedAt || null,
       totalDependencies: totalDeps,
       coreDependencies: coreDeps,
       availableUpdates,
@@ -160,6 +164,16 @@ async function repositorySummaries(userId, query = {}) {
       },
       lastCheckedAt: item.lastCheckedAt || null,
     }
+  })
+
+  // Only analyzed repositories appear in the updates section; unanalyzed ones are excluded
+  rows = rows.filter((r) => {
+    return (
+      r.scanStatus === 'COMPLETED' ||
+      r.lastScannedAt != null ||
+      r.lastAnalyzedAt != null ||
+      r.totalDependencies > 0
+    )
   })
 
   if (search) {

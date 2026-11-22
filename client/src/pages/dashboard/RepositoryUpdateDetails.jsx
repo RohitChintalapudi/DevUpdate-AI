@@ -678,8 +678,8 @@ export default function RepositoryUpdateDetails() {
         )}
       </AnimatePresence>
 
-      {/* Section 2: Repository Update Overview (All 8 Cards in One Single Line on Desktop) */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8 sm:gap-2.5">
+      {/* Section 2: Repository Update Overview (Strictly 6 Cards in One Single Line on Desktop) */}
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6 sm:gap-3">
         <StatCard
           square
           index={0}
@@ -703,14 +703,14 @@ export default function RepositoryUpdateDetails() {
           index={2}
           label="Available"
           value={stats.updateAvailable || 0}
-          description="Newer releases"
+          description="Need updating"
           icon={LuTrendingUp}
           tone="warning"
         />
         <StatCard
           square
           index={3}
-          label="Major"
+          label="Major Updates"
           value={stats.majorUpdates || 0}
           description="Breaking risks"
           icon={LuTriangleAlert}
@@ -719,24 +719,6 @@ export default function RepositoryUpdateDetails() {
         <StatCard
           square
           index={4}
-          label="Minor"
-          value={stats.minorUpdates || 0}
-          description="Features added"
-          icon={LuRefreshCw}
-          tone="warning"
-        />
-        <StatCard
-          square
-          index={5}
-          label="Patch"
-          value={stats.patchUpdates || 0}
-          description="Bugfixes only"
-          icon={LuGitBranch}
-          tone="cyan"
-        />
-        <StatCard
-          square
-          index={6}
           label="Vulnerable"
           value={stats.vulnerable || stats.vulnerableDependencies || 0}
           description="Advisories"
@@ -745,7 +727,7 @@ export default function RepositoryUpdateDetails() {
         />
         <StatCard
           square
-          index={7}
+          index={5}
           label="Research Done"
           value={Math.max(stats.researchCompleted || 0, activeResearchJob?.completed || 0)}
           description="Firecrawl"
