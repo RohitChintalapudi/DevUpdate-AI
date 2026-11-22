@@ -16,11 +16,6 @@ import DependencyUpdates from './pages/dashboard/DependencyUpdates'
 import RepositoryUpdateDetails from './pages/dashboard/RepositoryUpdateDetails'
 import DependencyUpdateDetail from './pages/dashboard/DependencyUpdateDetail'
 import Vulnerabilities from './pages/dashboard/Vulnerabilities'
-import Recommendations from './pages/dashboard/Recommendations'
-import AiOverview from './pages/dashboard/AiOverview'
-import AnalysisDetail from './pages/dashboard/AnalysisDetail'
-import ResearchLibrary from './pages/dashboard/ResearchLibrary'
-import RepositoryChat from './pages/dashboard/RepositoryChat'
 import Memory from './pages/dashboard/Memory'
 import History from './pages/dashboard/History'
 import Feedback from './pages/dashboard/Feedback'
@@ -79,11 +74,9 @@ export default function App() {
         <Route path="updates/repository/:repositoryId" element={<RepositoryUpdateDetails />} />
         <Route path="updates/:dependencyId" element={<DependencyUpdateDetail />} />
         <Route path="vulnerabilities" element={<Vulnerabilities />} />
-        <Route path="ai" element={<AiOverview />} />
-        <Route path="ai/analysis/:analysisId" element={<AnalysisDetail />} />
-        <Route path="ai/research" element={<ResearchLibrary />} />
-        <Route path="ai/chat" element={<RepositoryChat />} />
-        <Route path="recommendations" element={<Recommendations />} />
+        <Route path="ai" element={<Navigate to="/dashboard/updates" replace />} />
+        <Route path="ai/*" element={<Navigate to="/dashboard/updates" replace />} />
+        <Route path="recommendations" element={<Navigate to="/dashboard/updates" replace />} />
         <Route path="memory" element={<Memory />} />
         <Route path="history" element={<History />} />
         <Route path="feedback" element={<Feedback />} />

@@ -26,12 +26,6 @@ const SECTION_TABS = {
     { label: 'Security & Advisories', path: '/dashboard/vulnerabilities', icon: LuShieldAlert },
     { label: 'Reports', path: '/dashboard/reports', icon: LuChartNoAxesCombined },
   ],
-  ai: [
-    { label: 'Overview', path: '/dashboard/ai', icon: LuSparkles },
-    { label: 'Recommendations', path: '/dashboard/recommendations', icon: LuBot },
-    { label: 'Research Library', path: '/dashboard/ai/research', icon: LuBookOpen },
-    { label: 'Repository Chat', path: '/dashboard/ai/chat', icon: LuMessageSquare },
-  ],
   memento: [
     { label: 'Project Memory', path: '/dashboard/memory', icon: LuBrain },
     { label: 'Change History', path: '/dashboard/history', icon: LuClock3 },
@@ -55,7 +49,6 @@ export default function SectionTabs({ section, className = '' }) {
             to={tab.path}
             end={
               tab.path === '/dashboard/updates' ||
-              tab.path === '/dashboard/ai' ||
               tab.path === '/dashboard/repositories' ||
               tab.path === '/dashboard/memory'
             }

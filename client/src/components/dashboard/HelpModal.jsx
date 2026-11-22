@@ -47,9 +47,9 @@ export default function HelpModal({ open, onClose }) {
             <div className="flex items-start gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50/80 p-2.5">
               <LuSparkles className="mt-0.5 h-4 w-4 shrink-0 text-sky-600" />
               <div>
-                <p className="font-semibold text-slate-900">AI Intelligence & Memento</p>
+                <p className="font-semibold text-slate-900">Memento Memory</p>
                 <p className="text-[11px] text-slate-600">
-                  Generate tailored upgrade recommendations and retain historical upgrade decisions across sessions.
+                  Retain upgrade history, breaking-change learnings, and context across sessions.
                 </p>
               </div>
             </div>
