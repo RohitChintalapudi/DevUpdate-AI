@@ -461,14 +461,14 @@ export default function RepositoryUpdateDetails() {
         </div>
       )}
 
-      {/* Section 2: Repository Update Overview (8 Calculated Summary Metrics) */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-4">
+      {/* Section 2: Repository Update Overview (All 8 Cards in One Single Line on Desktop) */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8 sm:gap-2.5">
         <StatCard
           square
           index={0}
           label="Total Deps"
           value={stats.total || stats.totalDependencies || 0}
-          description="Detected packages"
+          description="Detected"
           icon={LuPackage}
           tone="neutral"
         />
@@ -477,14 +477,14 @@ export default function RepositoryUpdateDetails() {
           index={1}
           label="Up to Date"
           value={stats.upToDate || 0}
-          description="At latest stable"
+          description="Latest stable"
           icon={LuCircleCheck}
           tone="success"
         />
         <StatCard
           square
           index={2}
-          label="Updates Available"
+          label="Available"
           value={stats.updateAvailable || 0}
           description="Newer releases"
           icon={LuTrendingUp}
@@ -493,16 +493,16 @@ export default function RepositoryUpdateDetails() {
         <StatCard
           square
           index={3}
-          label="Major Updates"
+          label="Major"
           value={stats.majorUpdates || 0}
-          description="Breaking potential"
+          description="Breaking risks"
           icon={LuTriangleAlert}
           tone="danger"
         />
         <StatCard
           square
           index={4}
-          label="Minor Updates"
+          label="Minor"
           value={stats.minorUpdates || 0}
           description="Features added"
           icon={LuRefreshCw}
@@ -511,7 +511,7 @@ export default function RepositoryUpdateDetails() {
         <StatCard
           square
           index={5}
-          label="Patch Updates"
+          label="Patch"
           value={stats.patchUpdates || 0}
           description="Bugfixes only"
           icon={LuGitBranch}
@@ -522,7 +522,7 @@ export default function RepositoryUpdateDetails() {
           index={6}
           label="Vulnerable"
           value={stats.vulnerable || stats.vulnerableDependencies || 0}
-          description="Security advisories"
+          description="Advisories"
           icon={LuShieldAlert}
           tone="danger"
         />
@@ -531,7 +531,7 @@ export default function RepositoryUpdateDetails() {
           index={7}
           label="Research Done"
           value={Math.max(stats.researchCompleted || 0, activeResearchJob?.completed || 0)}
-          description="Firecrawl verified"
+          description="Firecrawl"
           icon={LuFlame}
           tone="purple"
         />
