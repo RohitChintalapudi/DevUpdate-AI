@@ -325,12 +325,25 @@ export default function DependencyUpdates() {
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                               Updates Available
                             </span>
-                            <p className={`mt-0.5 text-sm font-bold ${repo.availableUpdates > 0 ? 'text-amber-600' : 'text-slate-900'}`}>
-                              {repo.availableUpdates || 0}
-                            </p>
-                            <span className="text-[10px] text-slate-500">
-                              {repo.majorUpdates ? `${repo.majorUpdates} major` : 'All types'}
-                            </span>
+                            {repo.lastUpdateCheckAt ? (
+                              <>
+                                <p className={`mt-0.5 text-sm font-bold ${repo.availableUpdates > 0 ? 'text-amber-600' : 'text-slate-900'}`}>
+                                  {repo.availableUpdates || 0}
+                                </p>
+                                <span className="text-[10px] text-slate-500">
+                                  {repo.majorUpdates ? `${repo.majorUpdates} major` : 'All types'}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <p className="mt-0.5 text-xs font-semibold text-sky-600 flex items-center gap-1">
+                                  <LuRefreshCw className="h-3 w-3" /> Auto-sync
+                                </p>
+                                <span className="text-[10px] text-slate-400">
+                                  Click to verify
+                                </span>
+                              </>
+                            )}
                           </div>
 
                           <div className="border-t border-slate-200/60 pt-2">
@@ -356,7 +369,9 @@ export default function DependencyUpdates() {
                         <div className="mt-3.5 space-y-1 text-[11px] text-slate-400">
                           <div className="flex items-center justify-between">
                             <span>Last update check:</span>
-                            <span className="text-slate-600">{formatDate(repo.lastUpdateCheckAt || repo.lastCheckedAt)}</span>
+                            <span className={repo.lastUpdateCheckAt ? 'text-slate-600' : 'text-amber-600 font-medium'}>
+                              {repo.lastUpdateCheckAt ? formatDate(repo.lastUpdateCheckAt || repo.lastCheckedAt) : 'Pending check'}
+                            </span>
                           </div>
                           <div className="flex items-center justify-between">
                             <span>Last analyzed:</span>

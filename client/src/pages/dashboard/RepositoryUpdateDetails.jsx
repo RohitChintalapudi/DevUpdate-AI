@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   LuArrowLeft,
@@ -64,6 +64,8 @@ export default function RepositoryUpdateDetails() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [checking, setChecking] = useState(false)
+  const [autoUpdating, setAutoUpdating] = useState(false)
+  const hasAutoChecked = useRef(false)
   const [researchingAll, setResearchingAll] = useState(false)
   const [notFound, setNotFound] = useState(false)
   const [toast, setToast] = useState(null)
@@ -107,6 +109,29 @@ export default function RepositoryUpdateDetails() {
     }
   }, [repositoryId, debouncedSearch, updateStatus, securityStatus, researchStatus, classification, sort, page])
 
+  // Silent refresh that updates dependencies, counts and research without full-screen loading flash
+  const silentRefresh = useCallback(async () => {
+    if (!repositoryId) return
+    try {
+      const response = await updatesApi.repository(repositoryId, {
+        search: debouncedSearch,
+        updateStatus,
+        securityStatus,
+        researchStatus,
+        classification,
+        sort,
+        page,
+        limit: 20,
+      })
+      setData(response)
+      if (response.activeResearchJob) {
+        setActiveResearchJob(response.activeResearchJob)
+      }
+    } catch {
+      // silent background refresh
+    }
+  }, [repositoryId, debouncedSearch, updateStatus, securityStatus, researchStatus, classification, sort, page])
+
   useEffect(() => {
     let active = true
     const run = async () => {
@@ -119,6 +144,39 @@ export default function RepositoryUpdateDetails() {
     }
   }, [load])
 
+  // Auto-updating on opening repository when dependencies exist but updates haven't been checked
+  useEffect(() => {
+    if (!data || hasAutoChecked.current) return
+    const repo = data.repository
+    const stats = data.stats
+    const totalCount = stats?.total || stats?.totalDependencies || 0
+    const needsCheck =
+      (!repo?.lastUpdateCheckAt || repo?.updateCheckStatus === 'NOT_CHECKED') &&
+      totalCount > 0
+
+    if (needsCheck) {
+      hasAutoChecked.current = true
+      setAutoUpdating(true)
+      const runAutoUpdate = async () => {
+        try {
+          await updatesApi.checkRepository(repositoryId).catch(() => null)
+          let attempts = 0
+          const checkTimer = setInterval(async () => {
+            attempts += 1
+            await silentRefresh()
+            if (attempts >= 4) {
+              clearInterval(checkTimer)
+              setAutoUpdating(false)
+            }
+          }, 1200)
+        } catch {
+          setAutoUpdating(false)
+        }
+      }
+      runAutoUpdate()
+    }
+  }, [data, repositoryId, silentRefresh])
+
   // Polling for update version check job
   const jobStatus = data?.latestJob?.status || data?.repository?.updateCheckStatus
   const isVersionCheckPolling = ['QUEUED', 'SCANNING'].includes(jobStatus)
@@ -126,13 +184,14 @@ export default function RepositoryUpdateDetails() {
   useEffect(() => {
     if (!isVersionCheckPolling) return undefined
     const timer = setInterval(() => {
-      load().catch(() => null)
-    }, 3000)
+      silentRefresh().catch(() => null)
+    }, 2500)
     return () => clearInterval(timer)
-  }, [isVersionCheckPolling, load])
+  }, [isVersionCheckPolling, silentRefresh])
 
-  // Polling for Firecrawl research background job
-  const isResearchPolling = activeResearchJob?.status === 'RUNNING'
+  // Polling for Firecrawl research background job with live metric count-up
+  const isResearchPolling =
+    activeResearchJob?.status === 'RUNNING' || activeResearchJob?.status === 'QUEUED'
 
   useEffect(() => {
     if (!isResearchPolling) return undefined
@@ -141,6 +200,7 @@ export default function RepositoryUpdateDetails() {
         const res = await updatesApi.researchStatus(repositoryId)
         if (res.job) {
           setActiveResearchJob(res.job)
+          await silentRefresh()
           if (res.job.status === 'COMPLETED' || res.job.status === 'FAILED') {
             await load()
           }
@@ -151,9 +211,9 @@ export default function RepositoryUpdateDetails() {
       } catch {
         // silent error during polling
       }
-    }, 2500)
+    }, 2000)
     return () => clearInterval(timer)
-  }, [isResearchPolling, repositoryId, load])
+  }, [isResearchPolling, repositoryId, silentRefresh, load])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -171,7 +231,7 @@ export default function RepositoryUpdateDetails() {
         title: 'Authoritative version check queued',
         message: response.message || 'Verifying registry versions and OSV security advisories in background.',
       })
-      await load()
+      await silentRefresh()
     } catch (error) {
       setToast({
         type: 'error',
@@ -188,12 +248,21 @@ export default function RepositoryUpdateDetails() {
     setResearchingAll(true)
     try {
       const response = await updatesApi.researchRepository(repositoryId)
-      setActiveResearchJob(response.job)
+      setActiveResearchJob(
+        response.job || {
+          status: 'RUNNING',
+          total: data?.stats?.total || data?.stats?.totalDependencies || 1,
+          completed: 0,
+          failed: 0,
+          percent: 5,
+        },
+      )
       setToast({
         type: 'success',
-        title: 'Firecrawl documentation research queued',
+        title: 'Firecrawl documentation research in progress',
         message: 'Researching official release notes, breaking changes, and changelogs.',
       })
+      await silentRefresh()
     } catch (error) {
       setToast({
         type: 'error',
@@ -339,6 +408,30 @@ export default function RepositoryUpdateDetails() {
           )}
         </div>
       </PageHeader>
+
+      {/* Auto-updating Dependency Intelligence Banner */}
+      {autoUpdating && (
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-sky-200/90 bg-gradient-to-r from-sky-50 via-blue-50/50 to-white p-4.5 shadow-xs">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-white shadow-sm relative">
+              <LuRefreshCw className="h-5 w-5 animate-spin text-sky-400" />
+              <span className="absolute -inset-1 rounded-xl border border-sky-400/40 animate-ping opacity-60" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-bold text-slate-950">Updating Dependency Intelligence…</h4>
+                <Badge tone="cyan" dot>Verifying Ecosystem Registries</Badge>
+              </div>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Resolving latest stable package releases, semver classifications, and OSV security advisories in real-time.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 sm:self-center">
+            <span className="text-xs font-semibold text-sky-700 animate-pulse">Syncing package trees…</span>
+          </div>
+        </div>
+      )}
 
       {/* Active Firecrawl Research Progress Banner */}
       {isResearchPolling && activeResearchJob && (

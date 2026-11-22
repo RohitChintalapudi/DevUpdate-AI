@@ -352,6 +352,43 @@ export const repositoryDetails = asyncHandler(async (req, res) => {
     throw new Error('Repository not found.')
   }
 
+  // Ensure baseline DependencyUpdate records exist for all scanned dependencies
+  const existingUpdateCount = await DependencyUpdate.countDocuments({ userId: req.user._id, repositoryId })
+  const depTotalCount = await Dependency.countDocuments({ userId: req.user._id, repositoryId })
+  if (existingUpdateCount === 0 && depTotalCount > 0) {
+    const rawDeps = await Dependency.find({ userId: req.user._id, repositoryId }).lean()
+    if (rawDeps.length > 0) {
+      const records = rawDeps.map((d) => ({
+        userId: req.user._id,
+        repositoryId,
+        dependencyId: d._id,
+        ecosystem: d.ecosystem,
+        packageName: d.packageName,
+        installedVersion: d.resolvedVersion || d.declaredVersion || '',
+        declaredVersion: d.declaredVersion || '',
+        resolvedVersion: d.resolvedVersion || '',
+        latestVersion: d.resolvedVersion || d.declaredVersion || '',
+        latestStableVersion: d.resolvedVersion || d.declaredVersion || '',
+        updateStatus: 'UNKNOWN',
+        updateType: 'NONE',
+        securityStatus: 'UNKNOWN',
+        researchStatus: 'NOT_RESEARCHED',
+        classification: d.classification || 'INTERNAL',
+        isDevelopmentDependency: Boolean(d.isDevelopmentDependency),
+      }))
+      await DependencyUpdate.insertMany(records, { ordered: false }).catch(() => null)
+    }
+
+    // Auto-queue authoritative version verification if repository has never been checked
+    if (
+      !repository.lastUpdateCheckAt &&
+      repository.updateCheckStatus !== 'SCANNING' &&
+      repository.updateCheckStatus !== 'QUEUED'
+    ) {
+      queueRepositoryUpdate({ userId: req.user._id, repositoryId }).catch(() => null)
+    }
+  }
+
   const match = { userId: req.user._id, repositoryId }
   const search = sanitizeText(req.query.search, 120)
   if (search) match.packageName = { $regex: escapeRegex(search), $options: 'i' }
@@ -689,6 +726,43 @@ export const repositoryDependencies = asyncHandler(async (req, res) => {
   if (!repository) {
     res.status(404)
     throw new Error('Repository not found.')
+  }
+
+  // Ensure baseline DependencyUpdate records exist for all scanned dependencies
+  const existingUpdateCount = await DependencyUpdate.countDocuments({ userId: req.user._id, repositoryId })
+  const depTotalCount = await Dependency.countDocuments({ userId: req.user._id, repositoryId })
+  if (existingUpdateCount === 0 && depTotalCount > 0) {
+    const rawDeps = await Dependency.find({ userId: req.user._id, repositoryId }).lean()
+    if (rawDeps.length > 0) {
+      const records = rawDeps.map((d) => ({
+        userId: req.user._id,
+        repositoryId,
+        dependencyId: d._id,
+        ecosystem: d.ecosystem,
+        packageName: d.packageName,
+        installedVersion: d.resolvedVersion || d.declaredVersion || '',
+        declaredVersion: d.declaredVersion || '',
+        resolvedVersion: d.resolvedVersion || '',
+        latestVersion: d.resolvedVersion || d.declaredVersion || '',
+        latestStableVersion: d.resolvedVersion || d.declaredVersion || '',
+        updateStatus: 'UNKNOWN',
+        updateType: 'NONE',
+        securityStatus: 'UNKNOWN',
+        researchStatus: 'NOT_RESEARCHED',
+        classification: d.classification || 'INTERNAL',
+        isDevelopmentDependency: Boolean(d.isDevelopmentDependency),
+      }))
+      await DependencyUpdate.insertMany(records, { ordered: false }).catch(() => null)
+    }
+
+    // Auto-queue authoritative version verification if repository has never been checked
+    if (
+      !repository.lastUpdateCheckAt &&
+      repository.updateCheckStatus !== 'SCANNING' &&
+      repository.updateCheckStatus !== 'QUEUED'
+    ) {
+      queueRepositoryUpdate({ userId: req.user._id, repositoryId }).catch(() => null)
+    }
   }
 
   const match = { userId: req.user._id, repositoryId }

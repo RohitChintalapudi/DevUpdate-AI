@@ -72,15 +72,16 @@ const aiInterpretationSchema = z.object({
  * using Firecrawl, extracts structured intelligence, and runs Gemini/Groq interpretation.
  */
 export async function researchSingleDependency({ userId, repositoryId, dependencyId, force = false }) {
-  const [dependency, update, repository] = await Promise.all([
+  const [dependency, repository] = await Promise.all([
     Dependency.findOne({ _id: dependencyId, userId, repositoryId }).lean(),
-    DependencyUpdate.findOne({ dependencyId, userId, repositoryId }),
     Repository.findOne({ _id: repositoryId, userId }).lean(),
   ])
 
   if (!dependency) {
     throw new Error('Dependency not found.')
   }
+
+  let update = await DependencyUpdate.findOne({ dependencyId, userId, repositoryId })
 
   const packageName = dependency.packageName
   const ecosystem = dependency.ecosystem
@@ -98,12 +99,36 @@ export async function researchSingleDependency({ userId, repositoryId, dependenc
     }).lean()
 
     if (existing) {
+      if (update && update.researchStatus !== 'COMPLETED') {
+        update.researchStatus = 'COMPLETED'
+        update.researchId = existing._id
+        await update.save().catch(() => null)
+      }
       return existing
     }
   }
 
-  // Update status to RESEARCHING
-  if (update) {
+  // Ensure DependencyUpdate record exists and set status to RESEARCHING
+  if (!update) {
+    update = await DependencyUpdate.create({
+      userId,
+      repositoryId,
+      dependencyId,
+      ecosystem,
+      packageName,
+      installedVersion,
+      declaredVersion: dependency.declaredVersion || '',
+      resolvedVersion: dependency.resolvedVersion || '',
+      latestVersion: targetVersion,
+      latestStableVersion: targetVersion,
+      updateStatus: 'UNKNOWN',
+      updateType: 'NONE',
+      securityStatus: 'UNKNOWN',
+      researchStatus: 'RESEARCHING',
+      classification: dependency.classification || 'INTERNAL',
+      isDevelopmentDependency: Boolean(dependency.isDevelopmentDependency),
+    }).catch(() => null)
+  } else {
     update.researchStatus = 'RESEARCHING'
     await update.save().catch(() => null)
   }
@@ -234,6 +259,12 @@ export async function researchSingleDependency({ userId, repositoryId, dependenc
       update.researchId = researchDoc._id
       await update.save().catch(() => null)
     }
+
+    // Touch repository so lastAnalyzedAt timestamp updates
+    await Repository.updateOne(
+      { _id: repositoryId, userId },
+      { $set: { lastAnalyzedAt: new Date() } },
+    ).catch(() => null)
 
     return researchDoc.toObject()
   } catch (error) {
@@ -449,6 +480,35 @@ export async function queueRepositoryResearch({ userId, repositoryId, dependency
 
   activeResearchJobs.set(repoId, jobState)
 
+  // Mark all queued dependencies in DB so UI immediately shows QUEUED status and updates table
+  await Promise.all(
+    sortedDeps.map(async (dep) => {
+      await DependencyUpdate.findOneAndUpdate(
+        { userId, repositoryId, dependencyId: dep._id },
+        {
+          $setOnInsert: {
+            ecosystem: dep.ecosystem,
+            packageName: dep.packageName,
+            installedVersion: dep.resolvedVersion || dep.declaredVersion || '',
+            declaredVersion: dep.declaredVersion || '',
+            resolvedVersion: dep.resolvedVersion || '',
+            latestVersion: dep.resolvedVersion || dep.declaredVersion || '',
+            latestStableVersion: dep.resolvedVersion || dep.declaredVersion || '',
+            updateStatus: 'UNKNOWN',
+            updateType: 'NONE',
+            securityStatus: 'UNKNOWN',
+            classification: dep.classification || 'INTERNAL',
+            isDevelopmentDependency: Boolean(dep.isDevelopmentDependency),
+          },
+          $set: {
+            researchStatus: 'QUEUED',
+          },
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      ).catch(() => null)
+    }),
+  ).catch(() => null)
+
   // Run in background asynchronously (controlled concurrency = 2)
   ;(async () => {
     for (const dep of sortedDeps) {
@@ -470,6 +530,10 @@ export async function queueRepositoryResearch({ userId, repositoryId, dependency
 
     jobState.status = 'COMPLETED'
     jobState.currentPackage = ''
+    await Repository.updateOne(
+      { _id: repositoryId, userId },
+      { $set: { lastAnalyzedAt: new Date() } },
+    ).catch(() => null)
   })().catch((err) => {
     jobState.status = 'FAILED'
     jobState.error = sanitizeError(err)
