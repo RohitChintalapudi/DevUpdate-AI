@@ -78,8 +78,8 @@ export default function App() {
         <Route path="ai/*" element={<Navigate to="/dashboard/updates" replace />} />
         <Route path="recommendations" element={<Navigate to="/dashboard/updates" replace />} />
         <Route path="memory" element={<Memory />} />
-        <Route path="history" element={<History />} />
-        <Route path="feedback" element={<Feedback />} />
+        <Route path="history" element={<Navigate to="/dashboard/memory" replace />} />
+        <Route path="feedback" element={<Navigate to="/dashboard/memory" replace />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="reports" element={<Reports />} />
         <Route path="settings" element={<Settings />} />

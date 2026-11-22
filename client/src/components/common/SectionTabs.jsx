@@ -26,11 +26,6 @@ const SECTION_TABS = {
     { label: 'Security & Advisories', path: '/dashboard/vulnerabilities', icon: LuShieldAlert },
     { label: 'Reports', path: '/dashboard/reports', icon: LuChartNoAxesCombined },
   ],
-  memento: [
-    { label: 'Project Memory', path: '/dashboard/memory', icon: LuBrain },
-    { label: 'Change History', path: '/dashboard/history', icon: LuClock3 },
-    { label: 'Decisions & Feedback', path: '/dashboard/feedback', icon: LuThumbsUp },
-  ],
 }
 
 export default function SectionTabs({ section, className = '' }) {
