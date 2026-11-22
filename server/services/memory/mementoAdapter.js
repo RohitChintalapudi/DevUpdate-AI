@@ -1,5 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import { MEMENTO_CAPABILITIES, PHASE5_LIMITS } from '../../constants/phase5Constants.js'
 import { sanitizeError, sanitizeText, withTimeout } from '../../utils/sanitize.js'
 
@@ -9,11 +10,11 @@ const TOOL_DISCOVERY_TTL_MS = 5 * 60 * 1000
 // These names are only used to classify tools returned by tools/list. No tool
 // is called unless the remote server advertises it and its schema is satisfied.
 const TOOL_NAME_HINTS = {
-  search: ['full-search', 'search', 'search-memory', 'search_memory', 'recall', 'find-memories', 'query-memory'],
-  store: ['remember', 'write-node', 'write_node', 'remember-node', 'create-node', 'create-memory', 'add-memory'],
-  update: ['update-node', 'update_node', 'update-memory', 'edit-node', 'modify-memory'],
-  delete: ['delete-node', 'delete_node', 'delete-memory', 'forget-memory', 'forget'],
-  retrieveById: ['get-node', 'read-node', 'get-memory', 'read-memory'],
+  search: ['search_memory', 'search-memory', 'full-search', 'search', 'recall', 'find-memories', 'query-memory'],
+  store: ['write_memory', 'write-memory', 'write_many_memories', 'remember', 'write-node', 'write_node', 'remember-node', 'create-node', 'create-memory', 'add-memory'],
+  update: ['update_memory', 'update-memory', 'update-node', 'update_node', 'edit-node', 'modify-memory'],
+  delete: ['forget_memory', 'forget-memory', 'delete-node', 'delete_node', 'delete-memory', 'forget'],
+  retrieveById: ['read_memory', 'read-memory', 'get-node', 'read-node', 'get-memory'],
 }
 
 let discovery = {
@@ -23,7 +24,12 @@ let discovery = {
   error: '',
 }
 
+export function isLocalMemento() {
+  return process.env.MEMENTO_MODE === 'local' || process.env.MEMENTO_MCP_URL === 'stdio'
+}
+
 export function isMementoConfigured() {
+  if (isLocalMemento()) return true
   return Boolean(process.env.MEMENTO_API_KEY && process.env.MEMENTO_API_KEY.trim())
 }
 
@@ -71,12 +77,62 @@ function buildArguments(tool, candidates) {
   const bag = candidateBag(candidates)
   const args = {}
 
+  // Adapt scope for structured tools like @psraghuveer/memento
+  if (properties.scope) {
+    if (typeof bag.scope === 'object' && bag.scope?.type) {
+      args.scope = bag.scope
+    } else {
+      args.scope = { type: 'global' }
+    }
+  }
+
+  // Adapt kind for structured tools like @psraghuveer/memento
+  if (properties.kind) {
+    if (typeof bag.kind === 'object' && bag.kind?.type) {
+      args.kind = bag.kind
+    } else {
+      const k = String(bag.kind || '').toLowerCase()
+      if (k === 'decision') {
+        args.kind = { type: 'decision', rationale: bag.rationale || bag.content || null }
+      } else if (k === 'preference') {
+        args.kind = { type: 'preference' }
+      } else {
+        args.kind = { type: 'fact' }
+      }
+    }
+  }
+
+  // Adapt tags array
+  if (properties.tags) {
+    const rawTags = Array.isArray(bag.tags) ? bag.tags : []
+    const cleanTags = rawTags
+      .map((t) => String(t).toLowerCase().replace(/[^a-z0-9:_-]/g, ''))
+      .filter(Boolean)
+    args.tags = cleanTags.length > 0 ? cleanTags : ['devupdate-ai']
+  }
+
+  // Adapt confirmation & reason for forget_memory
+  if (properties.confirm) args.confirm = true
+  if (properties.reason) args.reason = bag.reason || 'Removed from DevUpdate AI workspace'
+
+  // Copy standard mapped properties
   for (const key of Object.keys(properties)) {
+    if (args[key] !== undefined) continue
     if (Object.prototype.hasOwnProperty.call(bag, key)) args[key] = bag[key]
   }
 
+  // Fallbacks for content and text
+  if (properties.content && !args.content) {
+    args.content = bag.content || bag.text || bag.body || bag.title || 'DevUpdate AI memory note'
+  }
+  if (properties.text && !args.text) {
+    args.text = bag.text || bag.query || bag.q || bag.search || bag.content || ''
+  }
+
   for (const key of required) {
-    if (!Object.prototype.hasOwnProperty.call(args, key)) return null
+    if (!Object.prototype.hasOwnProperty.call(args, key) || args[key] === undefined || args[key] === null) {
+      return null
+    }
   }
   return args
 }
@@ -96,14 +152,27 @@ function extractText(result) {
 }
 
 async function withClient(work) {
-  const url = assertSafeEndpoint()
-  const transport = new StreamableHTTPClientTransport(url, {
-    requestInit: {
-      headers: {
-        Authorization: `Bearer ${process.env.MEMENTO_API_KEY.trim()}`,
+  let transport
+  if (isLocalMemento()) {
+    transport = new StdioClientTransport({
+      command: 'npx',
+      args: ['-y', '@psraghuveer/memento', 'serve'],
+      env: {
+        ...process.env,
+        MEMENTO_DB: process.env.MEMENTO_DB || 'C:\\Users\\rohit\\AppData\\Local\\memento\\memento.db',
       },
-    },
-  })
+    })
+  } else {
+    const url = assertSafeEndpoint()
+    transport = new StreamableHTTPClientTransport(url, {
+      requestInit: {
+        headers: {
+          Authorization: `Bearer ${(process.env.MEMENTO_API_KEY || '').trim()}`,
+        },
+      },
+    })
+  }
+
   const client = new Client({ name: 'devupdate-ai', version: '5.0.0' })
   await client.connect(transport)
   try {
@@ -305,20 +374,23 @@ export async function searchMemento({ query, scope = {}, limit = 10 } = {}) {
 
 export async function getMementoStatus({ force = false } = {}) {
   const configured = isMementoConfigured()
+  const local = isLocalMemento()
   const info = await discoverTools({ force })
   return {
-    product: 'Memento (mementoagi.com)',
-    endpoint: endpoint(),
+    product: local ? 'Memento MCP (@psraghuveer/memento)' : 'Memento (mementoagi.com)',
+    endpoint: local ? 'stdio (npx @psraghuveer/memento serve)' : endpoint(),
     configured,
     connected: configured && !info.error,
     authoritative: false,
-    mode: configured ? 'MEMENTO_MIRROR' : 'MONGODB_FALLBACK',
+    mode: local ? 'MEMENTO_LOCAL_MCP' : configured ? 'MEMENTO_MIRROR' : 'MONGODB_FALLBACK',
     capabilities: Object.keys(info.capabilities),
     advertisedTools: info.tools.map((tool) => tool.name).slice(0, 100),
     lastError: info.error,
     limitations: [
       'MongoDB remains authoritative for access control, metadata, retention and UI state.',
-      'Memento is best-effort: unsupported or unavailable operations are recorded and never silently claimed as Memento storage.',
+      local
+        ? 'Memento MCP mirrors structured memories into your local SQLite store for cross-tool AI persistence.'
+        : 'Memento is best-effort: remote operations are recorded and never silently claimed as Memento storage.',
     ],
   }
 }
