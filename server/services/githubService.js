@@ -123,17 +123,24 @@ function octokitFor(accessToken) {
   if (typeof accessToken !== 'string' || !accessToken) {
     throw new AppError('GitHub is not connected.', 401)
   }
-  return new Octokit({
+  const client = new Octokit({
     auth: accessToken,
     request: { timeout: GITHUB_REQUEST_TIMEOUT_MS },
   })
+  if (client.rest) {
+    client.users = client.rest.users
+    client.repos = client.rest.repos
+    client.git = client.rest.git
+  }
+  return client
 }
 
 export async function getAuthenticatedUser(accessToken) {
   const octokit = octokitFor(accessToken)
+  const rest = octokit.rest || octokit
   try {
     const { data } = await withTimeout(
-      octokit.users.getAuthenticated(),
+      rest.users.getAuthenticated(),
       GITHUB_REQUEST_TIMEOUT_MS,
       'Timed out reading the GitHub profile',
     )
@@ -166,9 +173,10 @@ function normalizeRepository(repo) {
 
 export async function listAccessibleRepositories(accessToken) {
   const octokit = octokitFor(accessToken)
+  const rest = octokit.rest || octokit
   try {
     const repositories = await withTimeout(
-      octokit.paginate(octokit.repos.listForAuthenticatedUser, {
+      octokit.paginate(rest.repos.listForAuthenticatedUser, {
         visibility: 'all',
         affiliation: 'owner,collaborator,organization_member',
         sort: 'updated',
@@ -187,9 +195,10 @@ export async function listAccessibleRepositories(accessToken) {
 
 export async function getRepositoryMetadata(accessToken, owner, repo) {
   const octokit = octokitFor(accessToken)
+  const rest = octokit.rest || octokit
   try {
     const { data } = await withTimeout(
-      octokit.repos.get({ owner, repo }),
+      rest.repos.get({ owner, repo }),
       GITHUB_REQUEST_TIMEOUT_MS,
       'Timed out reading repository metadata',
     )
@@ -217,6 +226,7 @@ function relevantBlobs(entries) {
 }
 
 async function fetchTreeWithoutTruncation(octokit, owner, repo, ref) {
+  const rest = octokit.rest || octokit
   const collected = []
   const seen = new Set()
   let queue = [{ sha: ref, path: '', depth: 0 }]
@@ -227,7 +237,7 @@ async function fetchTreeWithoutTruncation(octokit, owner, repo, ref) {
     queue = []
     const results = await mapLimit(batch, MAX_CONCURRENT_REQUESTS, async (node) => {
       if (node.depth > MAX_TREE_DEPTH) return { blobs: [], directories: [] }
-      const { data } = await octokit.git.getTree({ owner, repo, tree_sha: node.sha })
+      const { data } = await rest.git.getTree({ owner, repo, tree_sha: node.sha })
       const blobs = relevantBlobs(data.tree).map((blob) => ({
         ...blob,
         path: node.path ? `${node.path}/${blob.path}` : blob.path,
@@ -263,9 +273,10 @@ async function fetchTreeWithoutTruncation(octokit, owner, repo, ref) {
 
 export async function getRepositoryTree(accessToken, owner, repo, ref) {
   const octokit = octokitFor(accessToken)
+  const rest = octokit.rest || octokit
   try {
     const { data } = await withTimeout(
-      octokit.git.getTree({ owner, repo, tree_sha: ref, recursive: '1' }),
+      rest.git.getTree({ owner, repo, tree_sha: ref, recursive: '1' }),
       GITHUB_REQUEST_TIMEOUT_MS * 2,
       'Timed out reading repository tree',
     )
@@ -286,9 +297,10 @@ export async function getRepositoryTree(accessToken, owner, repo, ref) {
 
 export async function getFileContent(accessToken, owner, repo, path, ref) {
   const octokit = octokitFor(accessToken)
+  const rest = octokit.rest || octokit
   try {
     const { data } = await withTimeout(
-      octokit.repos.getContent({
+      rest.repos.getContent({
         owner,
         repo,
         path,
