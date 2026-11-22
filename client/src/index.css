@@ -250,6 +250,60 @@
   }
 }
 
+@keyframes network-stripes {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 48px 0;
+  }
+}
+
+@keyframes network-pulse-beam {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(400%);
+    opacity: 0.3;
+  }
+}
+
+@keyframes ping-subtle {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  70%, 100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+.animate-network-stripes {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.28) 0,
+    rgba(255, 255, 255, 0.28) 12px,
+    transparent 12px,
+    transparent 24px
+  );
+  background-size: 48px 48px;
+  animation: network-stripes 1.2s linear infinite;
+}
+
+.animate-network-beam {
+  animation: network-pulse-beam 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-ping-subtle {
+  animation: ping-subtle 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
 .animate-float {
   animation: float 7s ease-in-out infinite;
 }
