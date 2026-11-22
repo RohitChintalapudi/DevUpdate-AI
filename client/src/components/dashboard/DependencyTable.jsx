@@ -33,11 +33,11 @@ export default function DependencyTable({ dependencies = [], showRepository = tr
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-line bg-card/60">
+    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs">
       <div className="scrollbar-slim overflow-x-auto">
         <table className="w-full min-w-[900px] text-left text-[13px]">
           <thead>
-            <tr className="border-b border-line bg-white/[0.02] text-[10px] font-semibold tracking-wider text-muted uppercase">
+            <tr className="border-b border-slate-200/80 bg-slate-50/80 text-[10.5px] font-bold tracking-wider text-slate-500 uppercase">
               <th className="px-5 py-3.5">Package name</th>
               <th className="px-5 py-3.5">Ecosystem</th>
               {showRepository ? <th className="px-5 py-3.5">Repository</th> : null}
@@ -52,14 +52,14 @@ export default function DependencyTable({ dependencies = [], showRepository = tr
             {dependencies.map((dependency) => (
               <tr
                 key={dependency._id || `${dependency.repositoryId?._id || dependency.repositoryId}-${dependency.packageName}-${dependency.sourceManifest}`}
-                className="border-b border-line/50 transition-colors last:border-0 hover:bg-white/[0.025]"
+                className="border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50/70"
               >
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-2.5">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] text-brandlight">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-sky-100 bg-sky-50 text-sky-600">
                       <LuPackage className="h-4 w-4" />
                     </span>
-                    <span className="font-medium text-ink">{dependency.packageName}</span>
+                    <span className="font-semibold text-slate-950">{dependency.packageName}</span>
                   </div>
                 </td>
                 <td className="px-5 py-4">

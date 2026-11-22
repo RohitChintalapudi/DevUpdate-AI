@@ -46,7 +46,7 @@ export default function SectionTabs({ section, className = '' }) {
   return (
     <div className={`mb-6 -mt-2 flex items-center overflow-x-auto pb-1 ${className}`}>
       <nav
-        className="inline-flex items-center gap-1 rounded-xl border border-line bg-surface/80 p-1 backdrop-blur-md"
+        className="inline-flex items-center gap-1 rounded-xl border border-slate-200/80 bg-white p-1 shadow-2xs backdrop-blur-md"
         aria-label="Section navigation"
       >
         {tabs.map((tab) => (
@@ -63,8 +63,8 @@ export default function SectionTabs({ section, className = '' }) {
               [
                 'group relative inline-flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-all duration-150',
                 isActive
-                  ? 'border border-brandlight/25 bg-brand/15 text-brandlight shadow-2xs font-semibold'
-                  : 'border border-transparent text-subtle hover:bg-white/[0.04] hover:text-ink',
+                  ? 'bg-slate-950 text-white font-semibold shadow-xs'
+                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950',
               ].join(' ')
             }
           >
@@ -72,7 +72,7 @@ export default function SectionTabs({ section, className = '' }) {
               <>
                 <tab.icon
                   className={`h-3.5 w-3.5 shrink-0 transition-colors ${
-                    isActive ? 'text-brandlight' : 'text-muted group-hover:text-subtle'
+                    isActive ? 'text-sky-400' : 'text-slate-400 group-hover:text-slate-700'
                   }`}
                   aria-hidden="true"
                 />

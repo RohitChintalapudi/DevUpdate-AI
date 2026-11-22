@@ -50,12 +50,10 @@ export default function RepositoryCard({ repository, index = 0, onAnalyze, busy 
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: Math.min(index, 8) * 0.05 }}
       whileHover={{ y: -4 }}
-      className="group relative flex h-full flex-col rounded-2xl border border-line bg-card/70 p-5 transition-colors hover:border-brandlight/30"
+      className="group relative flex h-full flex-col rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs transition-all duration-300 hover:border-slate-300 hover:shadow-md"
     >
-      <div className="pointer-events-none absolute -top-16 -right-12 h-40 w-40 rounded-full bg-brand/10 opacity-0 blur-3xl transition-opacity group-hover:opacity-100" />
-
       <div className="relative flex items-start justify-between gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-brand/20 bg-brand/10 text-brandlight">
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-sky-100 bg-sky-50 text-sky-600">
           <LuGitBranch className="h-[18px] w-[18px]" />
         </span>
         <div className="flex flex-wrap justify-end gap-1.5">

@@ -32,11 +32,11 @@ export default function UpdateTable({ updates = [], showRepository = true }) {
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-line bg-card/60">
+    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xs">
       <div className="scrollbar-slim overflow-x-auto">
         <table className="w-full min-w-[1080px] text-left text-[13px]">
           <thead>
-            <tr className="border-b border-line bg-white/[0.02] text-[10px] font-semibold tracking-wider text-muted uppercase">
+            <tr className="border-b border-slate-200/80 bg-slate-50/80 text-[10.5px] font-bold tracking-wider text-slate-500 uppercase">
               <th className="px-5 py-3.5">Package name</th>
               <th className="px-5 py-3.5">Ecosystem</th>
               {showRepository ? <th className="px-5 py-3.5">Repository</th> : null}
@@ -54,17 +54,17 @@ export default function UpdateTable({ updates = [], showRepository = true }) {
               return (
                 <tr
                   key={String(update._id || detailId)}
-                  className="border-b border-line/50 transition-colors last:border-0 hover:bg-white/[0.025]"
+                  className="border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50/70"
                 >
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-line bg-white/[0.03] text-brandlight">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-sky-100 bg-sky-50 text-sky-600">
                         <LuPackage className="h-4 w-4" aria-hidden="true" />
                       </span>
                       <div className="min-w-0">
-                        <p className="truncate font-medium text-ink">{update.packageName}</p>
+                        <p className="truncate font-semibold text-slate-950">{update.packageName}</p>
                         <p
-                          className="mt-0.5 truncate font-mono text-[11px] text-muted"
+                          className="mt-0.5 truncate font-mono text-[11px] text-slate-500"
                           title={update.declaredVersion || 'No declared requirement'}
                         >
                           declared {formatVersion(update.declaredVersion)}

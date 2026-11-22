@@ -16,11 +16,20 @@ export default function DashboardLayout() {
 
   useEffect(() => {
     localStorage.setItem('sidebar_collapsed', String(collapsed))
+    const prevBg = document.body.style.backgroundColor
+    const prevColor = document.body.style.color
+    document.body.style.backgroundColor = '#F8FAFC'
+    document.body.style.color = '#0F172A'
+
+    return () => {
+      document.body.style.backgroundColor = prevBg
+      document.body.style.color = prevColor
+    }
   }, [collapsed])
 
   return (
-    <div className="min-h-screen bg-canvas">
-      <div className="pointer-events-none fixed inset-0 grid-bg opacity-40" />
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans antialiased">
+      <div className="pointer-events-none fixed inset-0 grid-bg opacity-70" />
       <Sidebar
         collapsed={collapsed}
         setCollapsed={setCollapsed}

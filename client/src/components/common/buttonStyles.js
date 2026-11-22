@@ -1,13 +1,13 @@
 const variants = {
   primary:
-    'bg-gradient-to-r from-brand to-brandlight text-white shadow-[0_10px_30px_-10px_rgba(139,92,246,0.8)] hover:shadow-[0_14px_36px_-10px_rgba(139,92,246,0.95)] hover:brightness-110',
-  cyan: 'bg-gradient-to-r from-brand via-violet-500 to-accent text-white shadow-[0_10px_30px_-12px_rgba(34,211,238,0.7)] hover:brightness-110',
+    'bg-slate-950 text-white rounded-full hover:bg-slate-800 shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0',
+  cyan: 'bg-sky-600 text-white rounded-full hover:bg-sky-700 shadow-sm transition-all hover:-translate-y-0.5 active:translate-y-0',
   secondary:
-    'bg-elevated text-ink border border-line hover:border-brandlight/40 hover:bg-elevated/80',
+    'bg-white text-slate-800 border border-slate-200 hover:bg-slate-50 hover:border-slate-300 shadow-2xs rounded-full transition-all',
   outline:
-    'border border-white/15 text-ink hover:border-brandlight/50 hover:bg-white/[0.04]',
-  ghost: 'text-subtle hover:text-ink hover:bg-white/[0.06]',
-  danger: 'bg-danger/10 text-danger border border-danger/25 hover:bg-danger/20',
+    'border border-slate-200 text-slate-700 hover:bg-slate-50 hover:text-slate-950 rounded-full transition-all',
+  ghost: 'text-slate-600 hover:text-slate-950 hover:bg-slate-100 rounded-full transition-all',
+  danger: 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 rounded-full transition-all',
 }
 
 const sizes = {

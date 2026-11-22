@@ -15,13 +15,13 @@ import { updateActivityData, healthDistribution } from '../../data/mockData'
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-xl border border-line bg-elevated/95 px-3.5 py-3 shadow-xl backdrop-blur-md">
-      {label ? <p className="mb-1.5 text-[11px] font-semibold text-ink">{label}</p> : null}
+    <div className="rounded-xl border border-slate-200 bg-white px-3.5 py-3 shadow-xl">
+      {label ? <p className="mb-1.5 text-[11px] font-semibold text-slate-900">{label}</p> : null}
       {payload.map((entry) => (
-        <div key={entry.dataKey || entry.name} className="flex items-center gap-2 text-[11px] text-subtle">
+        <div key={entry.dataKey || entry.name} className="flex items-center gap-2 text-[11px] text-slate-600">
           <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: entry.color || entry.payload?.fill }} />
           <span className="capitalize">{entry.name}</span>
-          <span className="ml-auto font-semibold text-ink">{entry.value}</span>
+          <span className="ml-auto font-semibold text-slate-900">{entry.value}</span>
         </div>
       ))}
     </div>
@@ -43,7 +43,7 @@ export function UpdateActivityChart() {
               <stop offset="100%" stopColor="#22D3EE" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 6" stroke="rgba(255,255,255,0.05)" vertical={false} />
+          <CartesianGrid strokeDasharray="3 6" stroke="rgba(15,23,42,0.06)" vertical={false} />
           <XAxis
             dataKey="day"
             axisLine={false}

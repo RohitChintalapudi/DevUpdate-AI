@@ -13,23 +13,23 @@ const severityColors = {
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-xl border border-line bg-elevated/95 px-3 py-2 text-xs shadow-xl backdrop-blur">
-      <p className="font-semibold text-ink">{label || payload[0]?.name}</p>
-      <p className="mt-1 text-subtle">{payload[0].value} dependencies</p>
+    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-xl">
+      <p className="font-semibold text-slate-900">{label || payload[0]?.name}</p>
+      <p className="mt-1 text-slate-600">{payload[0].value} dependencies</p>
     </div>
   )
 }
 
 function Panel({ icon: Icon, title, description, children }) {
   return (
-    <div className="rounded-2xl border border-line bg-card/60 p-5 sm:p-6">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs sm:p-6">
       <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-brand/20 bg-brand/10 text-brandlight">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-sky-100 bg-sky-50 text-sky-600">
           <Icon className="h-4 w-4" aria-hidden="true" />
         </span>
         <div>
-          <h2 className="text-sm font-semibold text-ink">{title}</h2>
-          <p className="mt-1 text-xs text-muted">{description}</p>
+          <h2 className="text-sm font-semibold text-slate-950">{title}</h2>
+          <p className="mt-1 text-xs text-slate-500">{description}</p>
         </div>
       </div>
       <div className="mt-5">{children}</div>

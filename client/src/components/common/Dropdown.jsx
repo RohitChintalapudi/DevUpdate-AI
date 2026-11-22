@@ -31,11 +31,11 @@ export default function Dropdown({ trigger, items = [], align = 'right', classNa
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.97 }}
             transition={{ duration: 0.16 }}
-            className={`absolute top-[calc(100%+8px)] z-50 min-w-52 overflow-hidden rounded-xl border border-line bg-elevated p-1.5 shadow-[0_20px_50px_-16px_rgba(0,0,0,0.9)] ${align === 'right' ? 'right-0' : 'left-0'}`}
+            className={`absolute top-[calc(100%+8px)] z-50 min-w-52 overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl ${align === 'right' ? 'right-0' : 'left-0'}`}
           >
             {items.map((item, index) =>
               item.divider ? (
-                <div key={`divider-${index}`} className="my-1.5 h-px bg-line" />
+                <div key={`divider-${index}`} className="my-1.5 h-px bg-slate-100" />
               ) : (
                 <button
                   key={item.label}
@@ -44,10 +44,10 @@ export default function Dropdown({ trigger, items = [], align = 'right', classNa
                     setOpen(false)
                     item.onClick?.()
                   }}
-                  className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] transition ${
+                  className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition ${
                     item.danger
-                      ? 'text-danger hover:bg-danger/10'
-                      : 'text-subtle hover:bg-white/[0.06] hover:text-ink'
+                      ? 'text-rose-600 hover:bg-rose-50'
+                      : 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
                   }`}
                 >
                   {item.icon ? <item.icon className="h-4 w-4" aria-hidden="true" /> : null}
