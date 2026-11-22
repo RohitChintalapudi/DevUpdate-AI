@@ -17,6 +17,7 @@ import {
   LuSparkles,
   LuTrendingUp,
   LuTriangleAlert,
+  LuX,
 } from 'react-icons/lu'
 import Badge from '../../components/common/Badge'
 import Button from '../../components/common/Button'
@@ -76,6 +77,7 @@ export default function RepositoryUpdateDetails() {
 
   // Research job status
   const [activeResearchJob, setActiveResearchJob] = useState(null)
+  const [dismissedResearch, setDismissedResearch] = useState(false)
 
   const load = useCallback(async () => {
     if (!repositoryId) return
@@ -152,7 +154,9 @@ export default function RepositoryUpdateDetails() {
     const stats = data.stats
     const totalCount = stats?.total || stats?.totalDependencies || 0
     const needsCheck =
-      (!repo?.lastUpdateCheckAt || repo?.updateCheckStatus === 'NOT_CHECKED') &&
+      (!repo?.lastUpdateCheckAt ||
+        repo?.updateCheckStatus === 'NOT_CHECKED' ||
+        (stats?.upToDate === 0 && stats?.updateAvailable === 0 && stats?.outdated === 0)) &&
       totalCount > 0
 
     if (needsCheck) {
@@ -165,11 +169,11 @@ export default function RepositoryUpdateDetails() {
           const checkTimer = setInterval(async () => {
             attempts += 1
             await silentRefresh()
-            if (attempts >= 4) {
+            if (attempts >= 10) {
               clearInterval(checkTimer)
               setAutoUpdating(false)
             }
-          }, 1200)
+          }, 1500)
         } catch {
           setAutoUpdating(false)
         }
@@ -207,16 +211,27 @@ export default function RepositoryUpdateDetails() {
           if (res.job.status === 'COMPLETED' || res.job.status === 'FAILED') {
             await load()
           }
-        } else {
-          setActiveResearchJob(null)
-          await load()
+        } else if (res.counts && (res.counts.RESEARCHING > 0 || res.counts.QUEUED > 0)) {
+          setActiveResearchJob((prev) => ({
+            status: 'RUNNING',
+            total: prev?.total || data?.stats?.total || 1,
+            completed: res.counts.COMPLETED || 0,
+            failed: res.counts.FAILED || 0,
+            percent: Math.max(
+              5,
+              Math.round(((res.counts.COMPLETED || 0) / Math.max(1, prev?.total || data?.stats?.total || 1)) * 100),
+            ),
+            currentPackage: prev?.currentPackage || 'Researching official documentation…',
+            startedAt: prev?.startedAt || new Date().toISOString(),
+          }))
+          await silentRefresh()
         }
       } catch {
         // silent error during polling
       }
     }, 1500)
     return () => clearInterval(timer)
-  }, [isResearchPolling, repositoryId, silentRefresh, load])
+  }, [isResearchPolling, repositoryId, silentRefresh, load, data?.stats?.total])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -249,6 +264,7 @@ export default function RepositoryUpdateDetails() {
   // Trigger repository Firecrawl research job
   const handleTriggerResearchAll = async () => {
     const totalCount = data?.stats?.total || data?.stats?.totalDependencies || 1
+    setDismissedResearch(false)
     // Immediately set optimistic activeResearchJob so the animated progress bar pops up with zero delay
     setActiveResearchJob({
       status: 'RUNNING',
@@ -334,28 +350,37 @@ export default function RepositoryUpdateDetails() {
   const connectedRepos = data?.connectedRepositories || []
 
   // Firecrawl research live tracking calculations
+  const isCompleted = activeResearchJob?.status === 'COMPLETED'
   const isResearchActive =
-    researchingAll ||
-    activeResearchJob?.status === 'RUNNING' ||
-    activeResearchJob?.status === 'QUEUED'
+    !dismissedResearch &&
+    (researchingAll ||
+      activeResearchJob?.status === 'RUNNING' ||
+      activeResearchJob?.status === 'QUEUED' ||
+      isCompleted)
 
   const researchTotalCount =
     activeResearchJob?.total || stats.total || stats.totalDependencies || 1
   const researchCompletedCount =
     (activeResearchJob?.completed || 0) + (activeResearchJob?.failed || 0)
   const rawResearchPercent =
-    activeResearchJob?.percent !== undefined
+    isCompleted
+      ? 100
+      : activeResearchJob?.percent !== undefined
       ? activeResearchJob.percent
       : Math.round((researchCompletedCount / Math.max(1, researchTotalCount)) * 100)
-  const displayPercent = isResearchActive
+  const displayPercent = isCompleted
+    ? 100
+    : isResearchActive
     ? Math.max(4, Math.min(100, rawResearchPercent))
     : rawResearchPercent
-  const currentResearchPackage =
-    activeResearchJob?.currentPackage || 'Scanning dependency tree…'
+  const currentResearchPackage = isCompleted
+    ? 'All official packages researched'
+    : activeResearchJob?.currentPackage || 'Scanning dependency tree…'
 
-  const remainingPackages = Math.max(0, researchTotalCount - researchCompletedCount)
-  const etaSeconds = Math.max(3, Math.round(remainingPackages * 2.2))
+  const remainingPackages = isCompleted ? 0 : Math.max(0, researchTotalCount - researchCompletedCount)
+  const etaSeconds = isCompleted ? 0 : Math.max(3, Math.round(remainingPackages * 2.2))
   const formatEtaTime = (secs) => {
+    if (secs <= 0) return '0s (Done)'
     if (secs < 60) return `${secs}s`
     const mins = Math.floor(secs / 60)
     const rem = secs % 60
@@ -363,7 +388,9 @@ export default function RepositoryUpdateDetails() {
   }
 
   let researchStageLabel = 'Discovering official package documentation & GitHub links…'
-  if (displayPercent >= 85) {
+  if (isCompleted) {
+    researchStageLabel = `Research complete! All ${researchTotalCount} dependencies analyzed with Firecrawl intelligence.`
+  } else if (displayPercent >= 85) {
     researchStageLabel = 'Running Gemini AI upgrade impact & migration step interpretation…'
   } else if (displayPercent >= 55) {
     researchStageLabel = 'Extracting breaking changes, deprecated APIs & security CVE fixes…'
@@ -488,22 +515,30 @@ export default function RepositoryUpdateDetails() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -12, scale: 0.98 }}
             transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            className="mb-6 rounded-2xl border border-amber-300/80 bg-gradient-to-br from-amber-50/95 via-orange-50/50 to-amber-50/90 p-5 shadow-sm relative overflow-hidden"
+            className={`mb-6 rounded-2xl border p-5 shadow-sm relative overflow-hidden ${
+              isCompleted
+                ? 'border-emerald-300/90 bg-gradient-to-br from-emerald-50/95 via-teal-50/50 to-emerald-50/90'
+                : 'border-amber-300/80 bg-gradient-to-br from-amber-50/95 via-orange-50/50 to-amber-50/90'
+            }`}
           >
             {/* Subtle animated network grid background */}
             <div
               className="pointer-events-none absolute inset-0 opacity-[0.03]"
               style={{
-                backgroundImage: `radial-gradient(circle, #f59e0b 1px, transparent 1px)`,
+                backgroundImage: `radial-gradient(circle, ${isCompleted ? '#10b981' : '#f59e0b'} 1px, transparent 1px)`,
                 backgroundSize: '16px 16px',
               }}
             />
 
             <div className="relative flex flex-col gap-3.5">
-              {/* Top row: Status, Live Indicator, and Counter */}
+              {/* Top row: Status, Live Indicator, Counter, and Dismiss Button */}
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-xs">
+                  <div
+                    className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white shadow-xs bg-gradient-to-br ${
+                      isCompleted ? 'from-emerald-500 to-teal-600' : 'from-amber-500 to-orange-500'
+                    }`}
+                  >
                     <LuFlame className="h-5 w-5 animate-pulse" />
                     <span className="absolute -top-1 -right-1 flex h-3 w-3">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -514,40 +549,78 @@ export default function RepositoryUpdateDetails() {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h4 className="text-sm font-bold text-slate-950">
-                        Firecrawl Documentation Research
+                        {isCompleted
+                          ? 'Firecrawl Documentation Research Complete'
+                          : 'Firecrawl Documentation Research'}
                       </h4>
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
+                          isCompleted
+                            ? 'bg-emerald-100/90 text-emerald-800 border-emerald-300'
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
+                        }`}
+                      >
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        Network Streaming
+                        {isCompleted ? 'Research Completed' : 'Network Streaming'}
                       </span>
                     </div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                      <span>Target:</span>
-                      <span className="inline-flex items-center gap-1.5 rounded bg-amber-100/80 px-2 py-0.5 font-mono text-[11px] font-semibold text-amber-900 border border-amber-200 shadow-2xs">
-                        <LuRefreshCw className="h-3 w-3 animate-spin text-amber-700" />
+                      <span>Status:</span>
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 font-mono text-[11px] font-semibold border shadow-2xs ${
+                          isCompleted
+                            ? 'bg-emerald-100/80 text-emerald-900 border-emerald-200'
+                            : 'bg-amber-100/80 text-amber-900 border-amber-200'
+                        }`}
+                      >
+                        {!isCompleted && <LuRefreshCw className="h-3 w-3 animate-spin text-amber-700" />}
                         {currentResearchPackage}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Right side: Live percentage & ETA */}
+                {/* Right side: Live percentage & ETA & Dismiss */}
                 <div className="flex items-center gap-4 text-right">
                   <div>
-                    <div className="flex items-baseline justify-end gap-0.5 font-mono text-2xl font-black tracking-tight text-amber-950">
+                    <div
+                      className={`flex items-baseline justify-end gap-0.5 font-mono text-2xl font-black tracking-tight ${
+                        isCompleted ? 'text-emerald-950' : 'text-amber-950'
+                      }`}
+                    >
                       <span>{displayPercent}</span>
-                      <span className="text-base font-bold text-amber-600">%</span>
+                      <span className={`text-base font-bold ${isCompleted ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        %
+                      </span>
                     </div>
                     <p className="text-[11px] font-medium text-slate-500">
-                      {researchCompletedCount} / {researchTotalCount} packages completed
+                      {researchCompletedCount} / {researchTotalCount} packages analyzed
                     </p>
                   </div>
-                  <div className="hidden sm:block border-l border-amber-200/80 pl-4 text-left">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Estimated ETA</p>
+                  <div
+                    className={`hidden sm:block border-l pl-4 text-left ${
+                      isCompleted ? 'border-emerald-200/80' : 'border-amber-200/80'
+                    }`}
+                  >
+                    <p
+                      className={`text-[10px] font-bold uppercase tracking-wider ${
+                        isCompleted ? 'text-emerald-700' : 'text-amber-700'
+                      }`}
+                    >
+                      {isCompleted ? 'Status' : 'Estimated ETA'}
+                    </p>
                     <p className="text-sm font-bold text-slate-900 font-mono">
-                      ~{formatEtaTime(etaSeconds)}
+                      {isCompleted ? '0s (Done)' : `~${formatEtaTime(etaSeconds)}`}
                     </p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setDismissedResearch(true)}
+                    className="ml-1 rounded-lg p-1.5 text-slate-400 hover:bg-slate-200/60 hover:text-slate-700 transition cursor-pointer"
+                    title="Dismiss research banner"
+                  >
+                    <LuX className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
 
@@ -555,18 +628,30 @@ export default function RepositoryUpdateDetails() {
               <div className="relative">
                 <div className="h-4 sm:h-5 w-full overflow-hidden rounded-full bg-slate-200/80 p-0.5 shadow-inner">
                   <div
-                    className="relative h-full rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.5)] transition-all duration-700 ease-out overflow-hidden"
+                    className={`relative h-full rounded-full transition-all duration-700 ease-out overflow-hidden ${
+                      isCompleted
+                        ? 'bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.5)]'
+                        : 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.5)]'
+                    }`}
                     style={{ width: `${displayPercent}%` }}
                   >
                     {/* Network Fiber Diagonal Flow Stripes */}
                     <div className="absolute inset-0 animate-network-stripes opacity-40 pointer-events-none" />
 
                     {/* High-speed Network Light Beam Sweep */}
-                    <div className="absolute inset-0 w-28 bg-gradient-to-r from-transparent via-white/80 to-transparent animate-network-beam pointer-events-none" />
+                    {!isCompleted && (
+                      <div className="absolute inset-0 w-28 bg-gradient-to-r from-transparent via-white/80 to-transparent animate-network-beam pointer-events-none" />
+                    )}
 
                     {/* Glowing Leading Head Node */}
-                    <div className="absolute right-0.5 top-1/2 -translate-y-1/2 h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full bg-white shadow-[0_0_8px_#ffffff,0_0_14px_#f59e0b] ring-1 ring-amber-300">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                    <div
+                      className={`absolute right-0.5 top-1/2 -translate-y-1/2 h-2.5 w-2.5 sm:h-3 sm:w-3 rounded-full bg-white shadow-[0_0_8px_#ffffff] ${
+                        isCompleted ? 'ring-1 ring-emerald-300' : 'ring-1 ring-amber-300 shadow-[0_0_14px_#f59e0b]'
+                      }`}
+                    >
+                      {!isCompleted && (
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -574,12 +659,18 @@ export default function RepositoryUpdateDetails() {
 
               {/* Bottom status text: Stage info & Network Health */}
               <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
-                <span className="flex items-center gap-1.5 font-medium text-amber-900">
-                  <LuSparkles className="h-3.5 w-3.5 text-amber-600 animate-pulse" />
+                <span
+                  className={`flex items-center gap-1.5 font-medium ${
+                    isCompleted ? 'text-emerald-900' : 'text-amber-900'
+                  }`}
+                >
+                  <LuSparkles className={`h-3.5 w-3.5 ${isCompleted ? 'text-emerald-600' : 'text-amber-600 animate-pulse'}`} />
                   {researchStageLabel}
                 </span>
                 <span className="font-mono text-[10px] text-slate-400">
-                  Parallel Firecrawl crawler • Rate-limited safe discovery
+                  {isCompleted
+                    ? 'Official documentation, changelogs & AI interpretations stored'
+                    : 'Parallel Firecrawl crawler • Rate-limited safe discovery'}
                 </span>
               </div>
             </div>

@@ -1,13 +1,27 @@
+import mongoose from 'mongoose'
 import Dependency from '../../../models/Dependency.js'
 import DependencyUpdate from '../../../models/DependencyUpdate.js'
 import Repository from '../../../models/Repository.js'
 import UpdateHistory from '../../../models/UpdateHistory.js'
 import UpdateJob from '../../../models/UpdateJob.js'
 import { AppError } from '../../../utils/errors.js'
-import { mapLimit, sanitizeError } from '../../../utils/sanitize.js'
+import { isValidObjectId, mapLimit, sanitizeError } from '../../../utils/sanitize.js'
 import { analyzeDependency } from './dependencyAnalyzer.js'
 import { detectChanges, snapshotFrom } from './historyService.js'
 import { notifyUpdateChanges } from '../../notifications/notificationService.js'
+
+function toObjectId(id) {
+  if (!id) return id
+  if (id instanceof mongoose.Types.ObjectId) return id
+  if (typeof id === 'string' && mongoose.Types.ObjectId.isValid(id)) {
+    try {
+      return new mongoose.Types.ObjectId(id)
+    } catch {
+      return id
+    }
+  }
+  return id
+}
 
 const MAX_CONCURRENCY = Math.max(1, Math.min(12, Number(process.env.UPDATE_MAX_CONCURRENCY) || 5))
 
@@ -16,17 +30,20 @@ async function updateProgress(jobId, progress) {
 }
 
 async function refreshRepositoryCounters(userId, repositoryId, completedAt) {
+  const userMatch = { $in: [toObjectId(userId), String(userId)] }
+  const repoMatch = { $in: [toObjectId(repositoryId), String(repositoryId)] }
+
   const [outdatedCount, vulnerableCount] = await Promise.all([
     DependencyUpdate.countDocuments({
-      userId,
-      repositoryId,
+      userId: userMatch,
+      repositoryId: repoMatch,
       updateStatus: { $in: ['OUTDATED', 'UPDATE_AVAILABLE', 'SECURITY_RISK'] },
     }),
-    DependencyUpdate.countDocuments({ userId, repositoryId, securityStatus: 'VULNERABLE' }),
+    DependencyUpdate.countDocuments({ userId: userMatch, repositoryId: repoMatch, securityStatus: 'VULNERABLE' }),
   ])
 
   await Repository.updateOne(
-    { _id: repositoryId, userId },
+    { _id: repoMatch, userId: userMatch },
     {
       $set: {
         lastUpdateCheckAt: completedAt,
@@ -39,14 +56,20 @@ async function refreshRepositoryCounters(userId, repositoryId, completedAt) {
 }
 
 export async function persistUpdateRecord(record) {
+  const userMatch = { $in: [toObjectId(record.userId), String(record.userId)] }
+  const depMatch = { $in: [toObjectId(record.dependencyId), String(record.dependencyId)] }
+
   const existing = await DependencyUpdate.findOne({
-    userId: record.userId,
-    dependencyId: record.dependencyId,
+    userId: userMatch,
+    $or: [{ dependencyId: depMatch }, { _id: depMatch }],
   }).lean()
   const changes = detectChanges(existing, record)
 
   const saved = await DependencyUpdate.findOneAndUpdate(
-    { userId: record.userId, dependencyId: record.dependencyId },
+    {
+      userId: userMatch,
+      $or: [{ dependencyId: depMatch }, { _id: depMatch }],
+    },
     { $set: record, $setOnInsert: { createdAt: new Date() } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   )
@@ -134,7 +157,25 @@ export async function runUpdateJob(jobId) {
     { $set: { updateCheckStatus: 'SCANNING' } },
   )
 
-  const dependencies = await Dependency.find({ userId: job.userId, repositoryId: repository._id }).lean()
+  const userMatch = { $in: [toObjectId(job.userId), String(job.userId)] }
+  const repoMatch = { $in: [toObjectId(repository._id), String(repository._id)] }
+  let dependencies = await Dependency.find({ userId: userMatch, repositoryId: repoMatch }).lean()
+  if (!dependencies.length) {
+    const rawUpdates = await DependencyUpdate.find({ userId: userMatch, repositoryId: repoMatch }).lean()
+    if (rawUpdates.length) {
+      dependencies = rawUpdates.map((u) => ({
+        _id: u.dependencyId || u._id,
+        userId: toObjectId(job.userId),
+        repositoryId: toObjectId(repository._id),
+        packageName: u.packageName,
+        ecosystem: u.ecosystem,
+        declaredVersion: u.declaredVersion || u.installedVersion || '',
+        resolvedVersion: u.resolvedVersion || u.installedVersion || '',
+        isDevelopmentDependency: Boolean(u.isDevelopmentDependency),
+        classification: u.classification || 'INTERNAL',
+      }))
+    }
+  }
   const total = dependencies.length
   let processed = 0
   let successful = 0

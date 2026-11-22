@@ -373,11 +373,14 @@ export const repositoryDetails = asyncHandler(async (req, res) => {
     throw new Error('Repository not found.')
   }
 
+  const userMatch = { $in: [userObjId, String(userObjId)] }
+  const repoMatch = { $in: [repoObjId, String(repoObjId)] }
+
   // Ensure baseline DependencyUpdate records exist for all scanned dependencies
-  const existingUpdateCount = await DependencyUpdate.countDocuments({ userId: userObjId, repositoryId: repoObjId })
-  const depTotalCount = await Dependency.countDocuments({ userId: userObjId, repositoryId: repoObjId })
+  const existingUpdateCount = await DependencyUpdate.countDocuments({ userId: userMatch, repositoryId: repoMatch })
+  const depTotalCount = await Dependency.countDocuments({ userId: userMatch, repositoryId: repoMatch })
   if (existingUpdateCount === 0 && depTotalCount > 0) {
-    const rawDeps = await Dependency.find({ userId: userObjId, repositoryId: repoObjId }).lean()
+    const rawDeps = await Dependency.find({ userId: userMatch, repositoryId: repoMatch }).lean()
     if (rawDeps.length > 0) {
       const records = rawDeps.map((d) => ({
         userId: userObjId,
@@ -402,7 +405,6 @@ export const repositoryDetails = asyncHandler(async (req, res) => {
 
     // Auto-queue authoritative version verification if repository has never been checked
     if (
-      !repository.lastUpdateCheckAt &&
       repository.updateCheckStatus !== 'SCANNING' &&
       repository.updateCheckStatus !== 'QUEUED'
     ) {
@@ -483,6 +485,18 @@ export const repositoryDetails = asyncHandler(async (req, res) => {
     directResearchCount || 0,
     activeResearchJob?.completed || 0,
   )
+
+  // Auto-queue version verification if dependencies exist but all update counts are 0/unverified
+  if (
+    totalDeps > 0 &&
+    (s.upToDate || 0) === 0 &&
+    (s.updateAvailable || 0) === 0 &&
+    (s.outdated || 0) === 0 &&
+    repository.updateCheckStatus !== 'SCANNING' &&
+    repository.updateCheckStatus !== 'QUEUED'
+  ) {
+    queueRepositoryUpdate({ userId: userObjId, repositoryId }).catch(() => null)
+  }
 
   res.json({
     success: true,
@@ -787,11 +801,14 @@ export const repositoryDependencies = asyncHandler(async (req, res) => {
     throw new Error('Repository not found.')
   }
 
+  const userMatch = { $in: [userObjId, String(userObjId)] }
+  const repoMatch = { $in: [repoObjId, String(repoObjId)] }
+
   // Ensure baseline DependencyUpdate records exist for all scanned dependencies
-  const existingUpdateCount = await DependencyUpdate.countDocuments({ userId: userObjId, repositoryId: repoObjId })
-  const depTotalCount = await Dependency.countDocuments({ userId: userObjId, repositoryId: repoObjId })
+  const existingUpdateCount = await DependencyUpdate.countDocuments({ userId: userMatch, repositoryId: repoMatch })
+  const depTotalCount = await Dependency.countDocuments({ userId: userMatch, repositoryId: repoMatch })
   if (existingUpdateCount === 0 && depTotalCount > 0) {
-    const rawDeps = await Dependency.find({ userId: userObjId, repositoryId: repoObjId }).lean()
+    const rawDeps = await Dependency.find({ userId: userMatch, repositoryId: repoMatch }).lean()
     if (rawDeps.length > 0) {
       const records = rawDeps.map((d) => ({
         userId: userObjId,
@@ -816,7 +833,6 @@ export const repositoryDependencies = asyncHandler(async (req, res) => {
 
     // Auto-queue authoritative version verification if repository has never been checked
     if (
-      !repository.lastUpdateCheckAt &&
       repository.updateCheckStatus !== 'SCANNING' &&
       repository.updateCheckStatus !== 'QUEUED'
     ) {
