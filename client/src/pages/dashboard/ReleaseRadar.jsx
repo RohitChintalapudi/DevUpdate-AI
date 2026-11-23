@@ -119,7 +119,7 @@ export default function ReleaseRadar() {
     }
   }, [loadUpdates])
 
-  const updates = data?.updates || []
+  const updates = (data?.updates || []).filter((u) => u.packageName && !u.packageName.startsWith('@'))
   const repositories = data?.repositories || []
   const paginationMeta = data?.pagination || { page: 1, limit: 12, total: 0, pages: 1 }
   const apiStats = data?.stats || {}

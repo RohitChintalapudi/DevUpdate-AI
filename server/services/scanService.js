@@ -161,7 +161,14 @@ async function failScan(jobId, repositoryId, error, userId = null, repositoryNam
 }
 
 async function persistDependencies({ userId, repositoryId, dependencies }) {
-  const signatures = new Set(dependencies.map(dependencySignature))
+  // Purge any legacy dependencies starting with '@' for this repository
+  await Promise.allSettled([
+    Dependency.deleteMany({ userId, repositoryId, packageName: /^@/ }),
+    DependencyUpdate.deleteMany({ userId, repositoryId, packageName: /^@/ }),
+  ])
+
+  const cleanDependencies = (dependencies || []).filter((d) => d.packageName && !d.packageName.startsWith('@'))
+  const signatures = new Set(cleanDependencies.map(dependencySignature))
   const existing = await Dependency.find({ userId, repositoryId }).select('_id').lean()
   const staleIds = []
   for (const record of existing) {
@@ -178,7 +185,7 @@ async function persistDependencies({ userId, repositoryId, dependencies }) {
   if (staleIds.length) await Dependency.deleteMany({ _id: { $in: staleIds }, userId, repositoryId })
 
   const unique = new Map()
-  for (const dependency of dependencies) unique.set(dependencySignature(dependency), dependency)
+  for (const dependency of cleanDependencies) unique.set(dependencySignature(dependency), dependency)
   if (!unique.size) return 0
 
   await Dependency.bulkWrite(

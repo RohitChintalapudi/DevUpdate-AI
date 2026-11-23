@@ -22,7 +22,11 @@ function formatDate(value) {
 }
 
 export default function DependencyTable({ dependencies = [], showRepository = true }) {
-  if (!dependencies.length) {
+  const cleanDependencies = (dependencies || []).filter(
+    (dependency) => dependency?.packageName && !dependency.packageName.startsWith('@'),
+  )
+
+  if (!cleanDependencies.length) {
     return (
       <EmptyState
         icon={LuPackage}
@@ -49,7 +53,7 @@ export default function DependencyTable({ dependencies = [], showRepository = tr
             </tr>
           </thead>
           <tbody>
-            {dependencies.map((dependency) => (
+            {cleanDependencies.map((dependency) => (
               <tr
                 key={dependency._id || `${dependency.repositoryId?._id || dependency.repositoryId}-${dependency.packageName}-${dependency.sourceManifest}`}
                 className="border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50/70"

@@ -57,8 +57,27 @@ export const listRepositories = asyncHandler(async (req, res) => {
 export const getRepository = asyncHandler(async (req, res) => {
   const id = req.params.id
   if (!isValidObjectId(id)) throw new AppError('Invalid repository id.', 400)
+
+  // Purge any legacy @ dependencies for this repository
+  await Promise.allSettled([
+    Dependency.deleteMany({ repositoryId: id, packageName: /^@/ }),
+  ])
+
+  // Recalculate clean non-@ dependency count
+  const nonAtCount = await Dependency.countDocuments({
+    repositoryId: id,
+    userId: req.user._id,
+    packageName: { $regex: '^[^@]' },
+  })
+
+  await Repository.updateOne(
+    { _id: id, userId: req.user._id },
+    { $set: { dependencyCount: nonAtCount } },
+  )
+
   const repository = await Repository.findOne({ _id: id, userId: req.user._id }).lean()
   if (!repository) throw new AppError('Repository not found.', 404)
+  repository.dependencyCount = nonAtCount
 
   const [latestJob, scanHistory, ecosystems] = await Promise.all([
     ScanJob.findOne({ repositoryId: repository._id, userId: req.user._id }).sort({ createdAt: -1 }).lean(),
@@ -67,7 +86,7 @@ export const getRepository = asyncHandler(async (req, res) => {
       .limit(10)
       .lean(),
     Dependency.aggregate([
-      { $match: { repositoryId: repository._id, userId: req.user._id } },
+      { $match: { repositoryId: repository._id, userId: req.user._id, packageName: { $regex: '^[^@]' } } },
       { $group: { _id: '$ecosystem', count: { $sum: 1 } } },
       { $project: { _id: 0, ecosystem: '$_id', count: 1 } },
       { $sort: { count: -1 } },
@@ -84,6 +103,9 @@ export const sync = asyncHandler(async (req, res) => {
 
 export const analyze = asyncHandler(async (req, res) => {
   try {
+    await Promise.allSettled([
+      Dependency.deleteMany({ repositoryId: req.params.id, packageName: /^@/ }),
+    ])
     const job = await queueScan({
       userId: req.user._id.toString(),
       repositoryId: req.params.id,
@@ -105,11 +127,15 @@ export const analyze = asyncHandler(async (req, res) => {
 export const scanStatus = asyncHandler(async (req, res) => {
   const id = req.params.id
   if (!isValidObjectId(id)) throw new AppError('Invalid repository id.', 400)
-  const repository = await Repository.findOne(
-    { _id: id, userId: req.user._id },
-    'scanStatus lastScannedAt lastScanError dependencyCount manifestFiles branch',
-  ).lean()
+  const [repository, nonAtCount] = await Promise.all([
+    Repository.findOne(
+      { _id: id, userId: req.user._id },
+      'scanStatus lastScannedAt lastScanError dependencyCount manifestFiles branch',
+    ).lean(),
+    Dependency.countDocuments({ repositoryId: id, userId: req.user._id, packageName: { $regex: '^[^@]' } }),
+  ])
   if (!repository) throw new AppError('Repository not found.', 404)
+  repository.dependencyCount = nonAtCount
   const latestJob = await ScanJob.findOne({
     repositoryId: repository._id,
     userId: req.user._id,

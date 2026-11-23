@@ -44,7 +44,7 @@ function makeEntry({
   artifactId = '',
 }) {
   const name = clean(packageName)
-  if (!name) return null
+  if (!name || name.startsWith('@')) return null
   return {
     packageName: name,
     ecosystem,
@@ -632,7 +632,7 @@ export function parseDependencyFiles(files) {
     const requirement = declared.get(key)
     const resolution = resolved.get(key)
     const base = requirement || resolution
-    if (!base) continue
+    if (!base || (base.packageName && base.packageName.startsWith('@'))) continue
     dependencies.push({
       packageName: base.packageName,
       ecosystem: base.ecosystem,

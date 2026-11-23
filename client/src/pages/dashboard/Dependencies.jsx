@@ -48,7 +48,11 @@ export default function Dependencies() {
         page,
         limit: 20,
       })
-      setData(response)
+      const cleanResponse = {
+        ...response,
+        dependencies: (response.dependencies || []).filter((d) => d.packageName && !d.packageName.startsWith('@')),
+      }
+      setData(cleanResponse)
     } catch (error) {
       setToast({ type: 'error', title: 'Could not load dependencies', message: getErrorMessage(error) })
     } finally {

@@ -97,7 +97,11 @@ export default function RepositoryUpdateDetails() {
         page,
         limit: 20,
       })
-      setData(response)
+      const cleanResponse = {
+        ...response,
+        updates: (response.updates || []).filter((u) => u.packageName && !u.packageName.startsWith('@')),
+      }
+      setData(cleanResponse)
       if (response.activeResearchJob) {
         setActiveResearchJob(response.activeResearchJob)
       }
@@ -130,7 +134,11 @@ export default function RepositoryUpdateDetails() {
         page,
         limit: 20,
       })
-      setData(response)
+      const cleanResponse = {
+        ...response,
+        updates: (response.updates || []).filter((u) => u.packageName && !u.packageName.startsWith('@')),
+      }
+      setData(cleanResponse)
       if (response.activeResearchJob) {
         setActiveResearchJob(response.activeResearchJob)
       }

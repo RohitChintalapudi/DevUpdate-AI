@@ -56,6 +56,23 @@ export async function connectDB(maxRetries = 10, retryDelayMs = 2500) {
       if (attempt > 1) {
         console.log(`[db] MongoDB connected on attempt ${attempt} (${host})`)
       }
+
+      // Non-blocking purge of any legacy scoped @ dependencies across collections
+      setImmediate(async () => {
+        try {
+          const collections = await mongoose.connection.db.listCollections().toArray()
+          const names = new Set(collections.map((c) => c.name))
+          if (names.has('dependencies')) {
+            await mongoose.connection.db.collection('dependencies').deleteMany({ packageName: /^@/ })
+          }
+          if (names.has('dependencyupdates')) {
+            await mongoose.connection.db.collection('dependencyupdates').deleteMany({ packageName: /^@/ })
+          }
+        } catch {
+          // ignore background cleanup error
+        }
+      })
+
       return connection
     } catch (error) {
       console.warn(`[db] MongoDB connection attempt ${attempt}/${maxRetries} failed: ${error.message}`)

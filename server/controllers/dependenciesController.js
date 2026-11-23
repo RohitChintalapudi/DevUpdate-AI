@@ -20,13 +20,19 @@ function escapeRegex(value) {
 }
 
 function buildFilter(query, userId) {
-  const filter = { userId }
+  const filter = { userId, packageName: { $regex: '^[^@]' } }
   const search = sanitizeText(query.search, 120)
   if (search) {
-    filter.$or = [
-      { packageName: { $regex: escapeRegex(search), $options: 'i' } },
-      { sourceManifest: { $regex: escapeRegex(search), $options: 'i' } },
+    filter.$and = [
+      { packageName: { $regex: '^[^@]' } },
+      {
+        $or: [
+          { packageName: { $regex: escapeRegex(search), $options: 'i' } },
+          { sourceManifest: { $regex: escapeRegex(search), $options: 'i' } },
+        ],
+      },
     ]
+    delete filter.packageName
   }
   if (query.ecosystem) filter.ecosystem = sanitizeText(query.ecosystem, 40)
   if (query.repositoryId) {
@@ -72,6 +78,9 @@ export const listByRepository = asyncHandler(async (req, res) => {
   if (!isValidObjectId(repositoryId)) throw new AppError('Invalid repository id.', 400)
   const repository = await Repository.findOne({ _id: repositoryId, userId: req.user._id })
   if (!repository) throw new AppError('Repository not found.', 404)
+
+  // Ensure any lingering legacy @ scoped dependencies are removed
+  await Dependency.deleteMany({ repositoryId, packageName: /^@/ })
 
   const { page, limit, skip } = paginate(req.query)
   const filter = buildFilter({ ...req.query, repositoryId }, req.user._id)

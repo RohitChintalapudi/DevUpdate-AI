@@ -68,7 +68,10 @@ export default function RepositoryDetails() {
   const loadDependencies = useCallback(async () => {
     try {
       const data = await dependenciesApi.byRepository(id, { limit: 100, sort: 'name' })
-      setDependencies(data.dependencies || [])
+      const cleanList = (data.dependencies || []).filter(
+        (dep) => dep.packageName && !dep.packageName.startsWith('@'),
+      )
+      setDependencies(cleanList)
     } catch (loadError) {
       setToast({
         type: 'error',
