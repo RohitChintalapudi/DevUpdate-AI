@@ -277,17 +277,38 @@ async function repositorySummaries(userId, query = {}) {
 
 async function resolveDependency(userId, dependencyId) {
   requireObjectId(dependencyId, 'dependency id')
-  const dependency = await Dependency.findOne({ _id: dependencyId, userId }).lean()
+  const userMatch = { $in: [toObjectId(userId), String(userId)] }
+  const depId = toObjectId(dependencyId)
+
+  // 1. Check Dependency collection directly
+  const dependency = await Dependency.findOne({ _id: depId, userId: userMatch }).lean()
   if (dependency) return dependency
 
+  // 2. Check DependencyUpdate collection by _id or dependencyId
   const update = await DependencyUpdate.findOne({
-    _id: dependencyId,
-    userId,
-  }).select('dependencyId').lean()
+    $or: [{ _id: depId }, { dependencyId: depId }],
+    userId: userMatch,
+  }).lean()
+
   if (update) {
-    const linked = await Dependency.findOne({ _id: update.dependencyId, userId }).lean()
-    if (linked) return linked
+    if (update.dependencyId) {
+      const linked = await Dependency.findOne({ _id: update.dependencyId, userId: userMatch }).lean()
+      if (linked) return linked
+    }
+    // Return a synthesized dependency from the DependencyUpdate document
+    return {
+      _id: update.dependencyId || update._id,
+      userId: update.userId,
+      repositoryId: update.repositoryId,
+      packageName: update.packageName,
+      ecosystem: update.ecosystem,
+      declaredVersion: update.declaredVersion || update.installedVersion || '',
+      resolvedVersion: update.resolvedVersion || update.installedVersion || '',
+      classification: update.classification || 'CORE',
+      isDevelopmentDependency: Boolean(update.isDevelopmentDependency),
+    }
   }
+
   throw new Error('NOT_FOUND')
 }
 
@@ -447,7 +468,7 @@ export const listUpdates = asyncHandler(async (req, res) => {
     { lastCheckedAt: -1 },
   )
   const { page, limit, skip } = pagination(req.query, 20, 100)
-  const [updates, total, repositories] = await Promise.all([
+  const [updates, total, repositories, statsSummary] = await Promise.all([
     DependencyUpdate.find(match)
       .sort(sort)
       .skip(skip)
@@ -460,12 +481,47 @@ export const listUpdates = asyncHandler(async (req, res) => {
       .select('name fullName owner htmlUrl language')
       .sort({ fullName: 1 })
       .lean(),
+    DependencyUpdate.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          needsUpgrade: countField('updateStatus', 'UPDATE_AVAILABLE'),
+          outdated: countField('updateStatus', 'OUTDATED'),
+          upToDate: countField('updateStatus', 'UP_TO_DATE'),
+          researched: {
+            $sum: {
+              $cond: [
+                {
+                  $or: [
+                    { $in: ['$researchStatus', ['COMPLETED', 'PARTIAL']] },
+                    { $gt: ['$researchId', null] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
+    ]),
   ])
+
+  const s = statsSummary[0] || {}
 
   res.json({
     success: true,
     updates,
     repositories,
+    stats: {
+      total: total || s.total || 0,
+      needsUpgrade: s.needsUpgrade || 0,
+      outdated: s.outdated || 0,
+      upToDate: s.upToDate || 0,
+      researched: s.researched || 0,
+    },
     pagination: { page, limit, total, pages: Math.max(1, Math.ceil(total / limit)) },
   })
 })
@@ -996,10 +1052,11 @@ export const triggerDependencyResearch = asyncHandler(async (req, res) => {
     force: Boolean(req.body?.force),
   })
 
+  const research = result?.research || result
   res.json({
     success: true,
-    research: result.research,
-    analysis: result.analysis,
+    research,
+    analysis: result?.analysis || null,
     message: 'Official Firecrawl documentation research completed.',
   })
 })
@@ -1013,34 +1070,62 @@ export const getDependencyResearchEndpoint = asyncHandler(async (req, res) => {
     // might be raw update ID
   }
 
-  const targetDepId = dependency?._id || dependencyId
-  const [research, update, aiAnalysis] = await Promise.all([
-    DependencyResearch.findOne({
-      userId: req.user._id,
-      $or: [{ dependencyId: targetDepId }, { updateId: dependencyId }],
-    })
-      .sort({ researchedAt: -1 })
-      .lean(),
-    DependencyUpdate.findOne({
-      userId: req.user._id,
-      $or: [{ _id: dependencyId }, { dependencyId: targetDepId }],
-    })
-      .populate('researchId')
-      .lean(),
-    AIAnalysis.findOne({
-      userId: req.user._id,
-      $or: [{ dependencyId: targetDepId }, { targetId: targetDepId }],
-    })
-      .sort({ createdAt: -1 })
-      .lean(),
-  ])
+  const userMatch = { $in: [toObjectId(req.user._id), String(req.user._id)] }
+  const depObjId = toObjectId(dependency?._id || dependencyId)
+  const rawId = toObjectId(dependencyId)
+
+  // Find update record
+  const update = await DependencyUpdate.findOne({
+    userId: userMatch,
+    $or: [{ _id: rawId }, { dependencyId: depObjId }, { _id: depObjId }],
+  })
+    .populate('researchId')
+    .lean()
+
+  // Find research record
+  let research = await DependencyResearch.findOne({
+    userId: userMatch,
+    $or: [
+      { dependencyId: depObjId },
+      { updateId: rawId },
+      ...(update?.researchId ? [{ _id: update.researchId._id || update.researchId }] : []),
+      ...(update?.packageName && update?.repositoryId
+        ? [{ packageName: update.packageName, repositoryId: update.repositoryId }]
+        : []),
+    ],
+  })
+    .sort({ researchedAt: -1 })
+    .lean()
+
+  if (!research && update?.researchId && typeof update.researchId === 'object') {
+    research = update.researchId
+  }
+
+  // Find AI analysis record
+  const aiAnalysis = await AIAnalysis.findOne({
+    userId: userMatch,
+    $or: [
+      { dependencyId: depObjId },
+      { targetId: depObjId },
+      { updateRecordId: rawId },
+      ...(update?.packageName && update?.repositoryId
+        ? [{ packageName: update.packageName, repositoryId: update.repositoryId }]
+        : []),
+    ],
+  })
+    .sort({ createdAt: -1 })
+    .lean()
 
   res.json({
     success: true,
     research,
     update,
     analysis: aiAnalysis,
-    dependency,
+    dependency: dependency || {
+      _id: depObjId,
+      packageName: update?.packageName,
+      ecosystem: update?.ecosystem,
+    },
   })
 })
 
@@ -1048,17 +1133,26 @@ export const triggerDependencyAnalysisEndpoint = asyncHandler(async (req, res) =
   const dependencyId = requireObjectId(req.params.dependencyId, 'dependency id')
   const dependency = await resolveDependency(req.user._id, dependencyId)
 
+  const userMatch = { $in: [toObjectId(req.user._id), String(req.user._id)] }
+  const depId = toObjectId(dependency._id)
+
   const [update, research, repository] = await Promise.all([
-    DependencyUpdate.findOne({ dependencyId: dependency._id, userId: req.user._id }),
-    DependencyResearch.findOne({ dependencyId: dependency._id, userId: req.user._id }).sort({ researchedAt: -1 }),
-    Repository.findOne({ _id: dependency.repositoryId, userId: req.user._id }).lean(),
+    DependencyUpdate.findOne({
+      $or: [{ dependencyId: depId }, { _id: depId }],
+      userId: userMatch,
+    }),
+    DependencyResearch.findOne({
+      $or: [{ dependencyId: depId }, { updateId: depId }],
+      userId: userMatch,
+    }).sort({ researchedAt: -1 }),
+    Repository.findOne({ _id: dependency.repositoryId, userId: userMatch }).lean(),
   ])
 
   const analysis = await interpretResearchWithAI({
     userId: req.user._id,
     repositoryId: dependency.repositoryId,
     dependencyId: dependency._id,
-    research: research || { findings: [], breakingChanges: [] },
+    researchDoc: research || update?.researchId || { findings: [], breakingChanges: [] },
     dependency,
     update,
     repository,

@@ -101,11 +101,9 @@ export default function DependencyResearchDrawer({
     setResearching(true)
     setError('')
     try {
-      const res = await updatesApi.researchDependency(dependencyId, { force })
-      if (res.research || res.analysis) {
-        await loadData()
-        if (onResearchUpdated) onResearchUpdated()
-      }
+      await updatesApi.researchDependency(dependencyId, { force })
+      await loadData()
+      if (onResearchUpdated) onResearchUpdated()
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {
@@ -145,6 +143,61 @@ export default function DependencyResearchDrawer({
   const updateType = update.updateType || 'UNKNOWN'
   const securityStatus = update.securityStatus || 'UNKNOWN'
   const researchStatus = update.researchStatus || (research ? 'COMPLETED' : 'NOT_RESEARCHED')
+
+  const versionList =
+    update.metadata?.versionHistory && update.metadata.versionHistory.length > 0
+      ? update.metadata.versionHistory
+      : [
+          latestStableVersion && latestStableVersion !== '—'
+            ? { version: latestStableVersion, publishedAt: update.lastCheckedAt }
+            : null,
+          latestCompatible && latestCompatible !== '—' && latestCompatible !== latestStableVersion
+            ? { version: latestCompatible, publishedAt: update.lastCheckedAt }
+            : null,
+          installedVersion && installedVersion !== '—' && installedVersion !== latestStableVersion
+            ? { version: installedVersion, publishedAt: update.createdAt }
+            : null,
+        ].filter(Boolean)
+
+  const sourcesList = [
+    ...(research?.sourceUrls || []),
+    ...(update?.registryUrl && !(research?.sourceUrls || []).some((s) => s.url === update.registryUrl)
+      ? [{ sourceType: 'registry', url: update.registryUrl, retrievedAt: update.lastCheckedAt || new Date() }]
+      : []),
+    ...((research?.packageInfo?.repositoryUrl || update?.metadata?.repositoryUrl) &&
+    !(research?.sourceUrls || []).some(
+      (s) => s.url === (research?.packageInfo?.repositoryUrl || update?.metadata?.repositoryUrl),
+    )
+      ? [
+          {
+            sourceType: 'github',
+            url: research?.packageInfo?.repositoryUrl || update?.metadata?.repositoryUrl,
+            retrievedAt: update.lastCheckedAt || new Date(),
+          },
+        ]
+      : []),
+    ...((research?.packageInfo?.documentationUrl ||
+      research?.packageInfo?.homepage ||
+      update?.metadata?.homepage) &&
+    !(research?.sourceUrls || []).some(
+      (s) =>
+        s.url ===
+        (research?.packageInfo?.documentationUrl ||
+          research?.packageInfo?.homepage ||
+          update?.metadata?.homepage),
+    )
+      ? [
+          {
+            sourceType: 'docs',
+            url:
+              research?.packageInfo?.documentationUrl ||
+              research?.packageInfo?.homepage ||
+              update?.metadata?.homepage,
+            retrievedAt: update.lastCheckedAt || new Date(),
+          },
+        ]
+      : []),
+  ]
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/40 backdrop-blur-xs transition-opacity duration-300">
@@ -601,9 +654,9 @@ export default function DependencyResearchDrawer({
                         </span>
                       </div>
 
-                      {update.metadata?.versionHistory && update.metadata.versionHistory.length > 0 ? (
+                      {versionList && versionList.length > 0 ? (
                         <div className="scrollbar-slim max-h-72 space-y-1.5 overflow-y-auto pr-1">
-                          {update.metadata.versionHistory.slice(0, 30).map((v, vIdx) => {
+                          {versionList.slice(0, 30).map((v, vIdx) => {
                             const isInstalled = v.version === installedVersion
                             const isLatest = v.version === latestStableVersion
                             return (
@@ -819,16 +872,16 @@ export default function DependencyResearchDrawer({
                     <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs">
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                          Firecrawl Discovered Sources ({research?.sourceUrls?.length || 0})
+                          Discovered Documentation & Sources ({sourcesList.length})
                         </h3>
                         <span className="text-[11px] text-slate-400">
-                          Official documentation endpoints
+                          Official documentation & registry endpoints
                         </span>
                       </div>
 
-                      {research?.sourceUrls && research.sourceUrls.length > 0 ? (
+                      {sourcesList.length > 0 ? (
                         <div className="space-y-2">
-                          {research.sourceUrls.map((source, idx) => (
+                          {sourcesList.map((source, idx) => (
                             <div
                               key={idx}
                               className="flex items-center justify-between gap-3 rounded-xl border border-slate-200/60 bg-slate-50/60 p-3 text-xs"
@@ -854,7 +907,7 @@ export default function DependencyResearchDrawer({
                         </div>
                       ) : (
                         <p className="py-6 text-center text-xs text-slate-400">
-                          No Firecrawl research sources stored yet. Run official research to discover documentation URLs.
+                          No documentation sources stored yet. Run official research to discover documentation URLs.
                         </p>
                       )}
                     </div>

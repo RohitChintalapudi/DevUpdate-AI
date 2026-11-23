@@ -410,17 +410,19 @@ export async function interpretResearchWithAI({
   dependency,
   update,
   researchDoc,
+  research,
 }) {
-  const packageName = dependency.packageName
-  const installedVersion = dependency.resolvedVersion || dependency.declaredVersion || update?.installedVersion || ''
+  const doc = researchDoc || research || {}
+  const packageName = dependency?.packageName || update?.packageName || 'Unknown'
+  const installedVersion = dependency?.resolvedVersion || dependency?.declaredVersion || update?.installedVersion || ''
   const targetVersion = update?.latestStableVersion || update?.latestVersion || installedVersion
 
-  const findingsText = (researchDoc.findings || [])
+  const findingsText = (doc.findings || [])
     .slice(0, 10)
     .map((f) => `- ${f.title}: ${f.description} (Source: ${f.sourceUrl})`)
     .join('\n')
 
-  const breakingText = (researchDoc.breakingChanges || [])
+  const breakingText = (doc.breakingChanges || [])
     .slice(0, 5)
     .map((b) => `- ${b.title}: ${b.description}`)
     .join('\n')

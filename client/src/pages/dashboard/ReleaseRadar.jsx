@@ -122,18 +122,22 @@ export default function ReleaseRadar() {
   const updates = data?.updates || []
   const repositories = data?.repositories || []
   const paginationMeta = data?.pagination || { page: 1, limit: 12, total: 0, pages: 1 }
+  const apiStats = data?.stats || {}
 
-  // Radar metrics derived from returned feed
-  const totalInWindow = paginationMeta.total || updates.length
-  const needsUpgradeCount = updates.filter(
-    (u) => getCanonicalUpdateStatus(u) === 'UPDATE_AVAILABLE',
-  ).length
-  const outdatedCount = updates.filter(
-    (u) => getCanonicalUpdateStatus(u) === 'OUTDATED',
-  ).length
-  const researchedCount = updates.filter(
-    (u) => u.researchStatus === 'COMPLETED' || u.researchId,
-  ).length
+  // Radar metrics derived from backend aggregation or returned feed
+  const totalInWindow = apiStats.total || paginationMeta.total || updates.length
+  const needsUpgradeCount =
+    apiStats.needsUpgrade !== undefined
+      ? apiStats.needsUpgrade
+      : updates.filter((u) => getCanonicalUpdateStatus(u) === 'UPDATE_AVAILABLE').length
+  const outdatedCount =
+    apiStats.outdated !== undefined
+      ? apiStats.outdated
+      : updates.filter((u) => getCanonicalUpdateStatus(u) === 'OUTDATED').length
+  const researchedCount =
+    apiStats.researched !== undefined
+      ? apiStats.researched
+      : updates.filter((u) => u.researchStatus === 'COMPLETED' || u.researchId).length
 
   return (
     <div>
@@ -173,44 +177,52 @@ export default function ReleaseRadar() {
         </div>
       </PageHeader>
 
-      {/* Top 4 Stat Cards in a Single Row */}
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 sm:gap-3">
-        <StatCard
-          square
-          index={0}
-          label="Recent Updates"
-          value={totalInWindow}
-          description="Within 6 months"
-          icon={LuRadio}
-          tone="cyan"
-        />
-        <StatCard
-          square
-          index={1}
-          label="Needs Upgrade"
-          value={needsUpgradeCount}
-          description="Minor & patch releases"
-          icon={LuTrendingUp}
-          tone="warning"
-        />
-        <StatCard
-          square
-          index={2}
-          label="Outdated"
-          value={outdatedCount}
-          description="Major version shifts"
-          icon={LuTriangleAlert}
-          tone="danger"
-        />
-        <StatCard
-          square
-          index={3}
-          label="Firecrawl Researched"
-          value={researchedCount}
-          description="Official docs verified"
-          icon={LuFlame}
-          tone="purple"
-        />
+      {/* Top Stat Cards: Small Square Boxes */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="w-28 sm:w-36">
+          <StatCard
+            square
+            index={0}
+            label="Recent Updates"
+            value={totalInWindow}
+            description="Within 6 months"
+            icon={LuRadio}
+            tone="cyan"
+          />
+        </div>
+        <div className="w-28 sm:w-36">
+          <StatCard
+            square
+            index={1}
+            label="Needs Upgrade"
+            value={needsUpgradeCount}
+            description="Minor & patch releases"
+            icon={LuTrendingUp}
+            tone="warning"
+          />
+        </div>
+        <div className="w-28 sm:w-36">
+          <StatCard
+            square
+            index={2}
+            label="Outdated"
+            value={outdatedCount}
+            description="Major version shifts"
+            icon={LuTriangleAlert}
+            tone="danger"
+          />
+        </div>
+        <div className="w-28 sm:w-36">
+          <StatCard
+            square
+            index={3}
+            label="Researched"
+            value={researchedCount}
+            description="Official docs verified"
+            icon={LuFlame}
+            tone="purple"
+          />
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
