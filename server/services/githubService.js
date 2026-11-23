@@ -264,24 +264,31 @@ async function fetchTreeWithoutTruncation(octokit, owner, repo, ref) {
   let queue = [{ sha: ref, path: '', depth: 0 }]
   let directoryCount = 0
 
-  while (queue.length && collected.length < MAX_TREE_ENTRIES) {
-    const batch = queue
-    queue = []
+  while (queue.length && collected.length < MAX_TREE_ENTRIES && directoryCount < 200) {
+    const batch = queue.splice(0, MAX_CONCURRENT_REQUESTS)
     const results = await mapLimit(batch, MAX_CONCURRENT_REQUESTS, async (node) => {
       if (node.depth > MAX_TREE_DEPTH) return { blobs: [], directories: [] }
-      const { data } = await rest.git.getTree({ owner, repo, tree_sha: node.sha })
-      const blobs = relevantBlobs(data.tree).map((blob) => ({
-        ...blob,
-        path: node.path ? `${node.path}/${blob.path}` : blob.path,
-      }))
-      const directories = data.tree
-        .filter((entry) => entry.type === 'tree' && entry.path && !isIgnoredPath(entry.path))
-        .map((entry) => ({
-          sha: entry.sha,
-          path: node.path ? `${node.path}/${entry.path}` : entry.path,
-          depth: node.depth + 1,
+      try {
+        const { data } = await withTimeout(
+          rest.git.getTree({ owner, repo, tree_sha: node.sha }),
+          GITHUB_REQUEST_TIMEOUT_MS,
+          'Directory tree fetch timeout',
+        )
+        const blobs = relevantBlobs(data.tree).map((blob) => ({
+          ...blob,
+          path: node.path ? `${node.path}/${blob.path}` : blob.path,
         }))
-      return { blobs, directories }
+        const directories = data.tree
+          .filter((entry) => entry.type === 'tree' && entry.path && !isIgnoredPath(entry.path) && node.depth < MAX_TREE_DEPTH)
+          .map((entry) => ({
+            sha: entry.sha,
+            path: node.path ? `${node.path}/${entry.path}` : entry.path,
+            depth: node.depth + 1,
+          }))
+        return { blobs, directories }
+      } catch {
+        return { blobs: [], directories: [] }
+      }
     })
 
     for (const result of results) {
@@ -292,7 +299,7 @@ async function fetchTreeWithoutTruncation(octokit, owner, repo, ref) {
         }
       }
       for (const directory of result.directories) {
-        if (directoryCount < 1500) {
+        if (directoryCount < 200) {
           directoryCount += 1
           queue.push(directory)
         }

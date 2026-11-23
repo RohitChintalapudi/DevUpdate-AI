@@ -130,7 +130,7 @@ export default function RepositoryDetails() {
       } catch {
         // A transient polling failure should not interrupt the background scan.
       }
-    }, 2500)
+    }, 1200)
     return () => clearInterval(timer)
   }, [id, repository?.scanStatus, loadRepository, loadDependencies])
 

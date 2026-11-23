@@ -8,6 +8,7 @@ import {
   sanitizeError,
   sanitizeText,
   isValidObjectId,
+  withTimeout,
 } from '../utils/sanitize.js'
 import { decryptAccessToken } from '../utils/tokenCrypto.js'
 import {
@@ -25,6 +26,7 @@ import { parseDependencyFiles } from './dependencyParserService.js'
 import { notifyScanFailed } from './notifications/notificationService.js'
 
 const STALE_SCAN_MS = 20 * 60 * 1000
+export const SCAN_TIMEOUT_MS = 110_000 // Guarantee scan completes under 120s
 const activeJobs = new Set()
 
 function validateBranch(branch) {
@@ -253,97 +255,103 @@ export async function runScan(jobId) {
       { $set: { scanStatus: 'SCANNING', lastScanError: '' } },
     )
 
-    const accessToken = decryptAccessToken(connection.accessToken)
-    const metadata = await getRepositoryMetadata(
-      accessToken,
-      repository.owner,
-      repository.name,
-    )
-    const ref = job.branch || repository.branch || repository.defaultBranch
-    const tree = await getRepositoryTree(
-      accessToken,
-      repository.owner,
-      repository.name,
-      ref,
-    )
+    await withTimeout(
+      (async () => {
+        const accessToken = decryptAccessToken(connection.accessToken)
+        const ref = job.branch || repository.branch || repository.defaultBranch
 
-    const manifests = tree.files
-      .filter((file) => file.size <= MAX_MANIFEST_BYTES && matchManifest(file.path))
-      .slice(0, MAX_MANIFESTS_PER_SCAN)
-      .map((file) => ({ ...file, matcher: matchManifest(file.path) }))
+        // Concurrently fetch repository metadata and git tree
+        const [metadata, tree] = await Promise.all([
+          getRepositoryMetadata(accessToken, repository.owner, repository.name),
+          getRepositoryTree(accessToken, repository.owner, repository.name, ref),
+        ])
 
-    await updateProgress(jobId, {
-      filesDiscovered: tree.files.length,
-      manifestsProcessed: 0,
-      dependenciesExtracted: 0,
-      message: `Discovered ${tree.files.length} files and ${manifests.length} manifest files.`,
-    })
+        const manifests = tree.files
+          .filter((file) => file.size <= MAX_MANIFEST_BYTES && matchManifest(file.path))
+          .sort((a, b) => {
+            const depthA = (a.path.match(/\//g) || []).length
+            const depthB = (b.path.match(/\//g) || []).length
+            return depthA - depthB
+          })
+          .slice(0, MAX_MANIFESTS_PER_SCAN)
+          .map((file) => ({ ...file, matcher: matchManifest(file.path) }))
 
-    let processed = 0
-    const contents = await mapLimit(manifests, MAX_CONCURRENT_REQUESTS, async (manifest) => {
-      try {
-        const content = await getFileContent(
-          accessToken,
-          repository.owner,
-          repository.name,
-          manifest.path,
-          ref,
-        )
-        return {
-          path: manifest.path,
-          parser: manifest.matcher.parser,
-          ecosystem: manifest.matcher.ecosystem,
-          content: content && content.length <= MAX_MANIFEST_BYTES ? content : '',
-        }
-      } finally {
-        processed += 1
         await updateProgress(jobId, {
           filesDiscovered: tree.files.length,
-          manifestsProcessed: processed,
+          manifestsProcessed: 0,
           dependenciesExtracted: 0,
-          message: `Processed ${processed} of ${manifests.length} manifest files.`,
+          message: `Discovered ${tree.files.length} files and ${manifests.length} manifest files.`,
         })
-      }
-    })
 
-    const dependencies = parseDependencyFiles(contents.filter((file) => file.content))
-    const count = await persistDependencies({
-      userId: job.userId,
-      repositoryId: repository._id,
-      dependencies,
-    })
+        let processed = 0
+        const contents = await mapLimit(manifests, MAX_CONCURRENT_REQUESTS, async (manifest) => {
+          try {
+            const content = await getFileContent(
+              accessToken,
+              repository.owner,
+              repository.name,
+              manifest.path,
+              ref,
+            )
+            return {
+              path: manifest.path,
+              parser: manifest.matcher.parser,
+              ecosystem: manifest.matcher.ecosystem,
+              content: content && content.length <= MAX_MANIFEST_BYTES ? content : '',
+            }
+          } finally {
+            processed += 1
+            await updateProgress(jobId, {
+              filesDiscovered: tree.files.length,
+              manifestsProcessed: processed,
+              dependenciesExtracted: 0,
+              message: `Processed ${processed} of ${manifests.length} manifest files.`,
+            })
+          }
+        })
 
-    const completedAt = new Date()
-    await ScanJob.updateOne(
-      { _id: jobId },
-      {
-        $set: {
-          status: 'COMPLETED',
-          completedAt,
-          progress: {
-            filesDiscovered: tree.files.length,
-            manifestsProcessed: manifests.length,
-            dependenciesExtracted: count,
-            message: `Extracted ${count} dependencies from ${manifests.length} manifests.`,
+        const dependencies = parseDependencyFiles(contents.filter((file) => file.content))
+        const count = await persistDependencies({
+          userId: job.userId,
+          repositoryId: repository._id,
+          dependencies,
+        })
+
+        const completedAt = new Date()
+        await ScanJob.updateOne(
+          { _id: jobId },
+          {
+            $set: {
+              status: 'COMPLETED',
+              completedAt,
+              progress: {
+                filesDiscovered: tree.files.length,
+                manifestsProcessed: manifests.length,
+                dependenciesExtracted: count,
+                message: `Extracted ${count} dependencies from ${manifests.length} manifests.`,
+              },
+            },
           },
-        },
-      },
+        )
+        await Repository.updateOne(
+          { _id: repository._id, userId: job.userId },
+          {
+            $set: {
+              ...metadata,
+              branch: ref,
+              scanStatus: 'COMPLETED',
+              lastScannedAt: completedAt,
+              lastScanError: '',
+              dependencyCount: count,
+              manifestFiles: manifests.map((manifest) => manifest.path),
+            },
+          },
+        )
+      })(),
+      SCAN_TIMEOUT_MS,
+      'Scan exceeded maximum allowed time (110s).',
     )
-    await Repository.updateOne(
-      { _id: repository._id, userId: job.userId },
-      {
-        $set: {
-          ...metadata,
-          branch: ref,
-          scanStatus: 'COMPLETED',
-          lastScannedAt: completedAt,
-          lastScanError: '',
-          dependencyCount: count,
-          manifestFiles: manifests.map((manifest) => manifest.path),
-        },
-      },
-    )
-    return { jobId, dependencies: count }
+    return { jobId }
   } catch (error) {
     await failScan(jobId, job.repositoryId, error, job.userId, repository?.fullName || '')
     throw error

@@ -5,6 +5,7 @@ export const IGNORED_PATH_SEGMENTS = new Set([
   'dist',
   '.git',
   '.next',
+  '.nuxt',
   '.cache',
   'coverage',
   'out',
@@ -12,16 +13,28 @@ export const IGNORED_PATH_SEGMENTS = new Set([
   '__pycache__',
   '.venv',
   'venv',
+  'env',
   'bin',
   'obj',
+  '.idea',
+  '.vscode',
+  '.turbo',
+  'public',
+  'assets',
+  'static',
+  'docs',
+  'tmp',
+  'temp',
+  'cypress',
+  'storybook-static',
 ])
 
-export const MAX_MANIFESTS_PER_SCAN = 100
+export const MAX_MANIFESTS_PER_SCAN = 50
 export const MAX_MANIFEST_BYTES = 1_000_000
 export const MAX_TREE_ENTRIES = 20_000
-export const MAX_TREE_DEPTH = 12
-export const MAX_CONCURRENT_REQUESTS = 5
-export const GITHUB_REQUEST_TIMEOUT_MS = 20_000
+export const MAX_TREE_DEPTH = 6
+export const MAX_CONCURRENT_REQUESTS = 12
+export const GITHUB_REQUEST_TIMEOUT_MS = 10_000
 
 // Ordered so lockfiles can be matched before their generic counterparts.
 export const MANIFEST_MATCHERS = [
