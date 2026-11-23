@@ -1045,12 +1045,27 @@ export const triggerDependencyResearch = asyncHandler(async (req, res) => {
   const dependencyId = requireObjectId(req.params.dependencyId, 'dependency id')
   const dependency = await resolveDependency(req.user._id, dependencyId)
 
-  const result = await researchSingleDependency({
-    userId: req.user._id,
-    repositoryId: dependency.repositoryId,
-    dependencyId: dependency._id,
-    force: Boolean(req.body?.force),
-  })
+  let result = null
+  try {
+    result = await researchSingleDependency({
+      userId: req.user._id,
+      repositoryId: dependency.repositoryId,
+      dependencyId: dependency._id,
+      force: Boolean(req.body?.force),
+    })
+  } catch (err) {
+    console.warn(`[research] Research failed non-critically for ${dependency.packageName}:`, err?.message || err)
+    const fallbackDoc = await DependencyResearch.findOne({
+      dependencyId: dependency._id,
+      userId: req.user._id,
+    }).lean()
+    return res.json({
+      success: true,
+      research: fallbackDoc || { packageName: dependency.packageName, researchStatus: 'FAILED', error: err?.message },
+      analysis: null,
+      message: 'Research could not fetch documentation: ' + (err?.message || 'External service error'),
+    })
+  }
 
   const research = result?.research || result
   res.json({
@@ -1148,20 +1163,25 @@ export const triggerDependencyAnalysisEndpoint = asyncHandler(async (req, res) =
     Repository.findOne({ _id: dependency.repositoryId, userId: userMatch }).lean(),
   ])
 
-  const analysis = await interpretResearchWithAI({
-    userId: req.user._id,
-    repositoryId: dependency.repositoryId,
-    dependencyId: dependency._id,
-    researchDoc: research || update?.researchId || { findings: [], breakingChanges: [] },
-    dependency,
-    update,
-    repository,
-  })
+  let analysis = null
+  try {
+    analysis = await interpretResearchWithAI({
+      userId: req.user._id,
+      repositoryId: dependency.repositoryId,
+      dependencyId: dependency._id,
+      researchDoc: research || update?.researchId || { findings: [], breakingChanges: [] },
+      dependency,
+      update,
+      repository,
+    })
+  } catch (err) {
+    console.warn(`[analysis] AI interpretation failed non-critically for ${dependency.packageName}:`, err?.message || err)
+  }
 
   res.json({
     success: true,
     analysis,
-    message: 'AI interpretation completed.',
+    message: analysis ? 'AI interpretation completed.' : 'AI interpretation deferred.',
   })
 })
 

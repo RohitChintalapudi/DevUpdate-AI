@@ -41,10 +41,15 @@ app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin || allowedOrigins.includes(origin)) return callback(null, true)
-      if (isDev && (/^https?:\/\/localhost(:\d+)?$/.test(origin) || /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(origin))) {
+      if (
+        isDev &&
+        (/^https?:\/\/localhost(:\d+)?$/.test(origin) ||
+          /^https?:\/\/127\.0\.0\.1(:\d+)?$/.test(origin) ||
+          /^https?:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/.test(origin))
+      ) {
         return callback(null, true)
       }
-      return callback(new Error('Origin not allowed by CORS'))
+      return callback(null, false)
     },
     credentials: true,
   }),
@@ -61,7 +66,7 @@ const limiterMessage = (message) => ({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 100,
+  limit: isDev ? 1000 : 200,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: limiterMessage('Too many authentication attempts. Try again in 15 minutes.'),
@@ -69,7 +74,7 @@ const authLimiter = rateLimit({
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 25,
+  limit: isDev ? 500 : 30,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   skipSuccessfulRequests: true,
@@ -78,7 +83,7 @@ const loginLimiter = rateLimit({
 
 const githubLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 30,
+  limit: isDev ? 2000 : 300,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: limiterMessage('Too many GitHub authorization requests. Try again in 15 minutes.'),
@@ -86,7 +91,7 @@ const githubLimiter = rateLimit({
 
 const scanLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 20,
+  limit: isDev ? 2000 : 200,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: limiterMessage('Too many scan requests. Try again in 15 minutes.'),
@@ -94,7 +99,7 @@ const scanLimiter = rateLimit({
 
 const updateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 120,
+  limit: isDev ? 10000 : 1500,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: limiterMessage('Too many update requests. Try again in 15 minutes.'),
@@ -102,7 +107,7 @@ const updateLimiter = rateLimit({
 
 const aiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: Number(process.env.AI_API_RATE_LIMIT) || 300,
+  limit: Number(process.env.AI_API_RATE_LIMIT) || (isDev ? 5000 : 600),
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: limiterMessage('Too many AI requests. Try again in 15 minutes.'),
@@ -110,7 +115,7 @@ const aiLimiter = rateLimit({
 
 const phase5Limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: Number(process.env.PHASE5_API_RATE_LIMIT) || 300,
+  limit: Number(process.env.PHASE5_API_RATE_LIMIT) || (isDev ? 5000 : 600),
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: limiterMessage('Too many memory, report or notification requests. Try again in 15 minutes.'),

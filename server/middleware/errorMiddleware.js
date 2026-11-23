@@ -24,13 +24,20 @@ export function notFoundHandler(req, res) {
 }
 
 export function errorHandler(error, req, res, next) {
+  // If headers were already written, pass error to Express default error handler to close socket safely
+  if (res.headersSent) {
+    return next(error)
+  }
+
   const normalized = handleMongooseDuplicate(error) || handleValidation(error) || error
   const statusCode = normalized.statusCode || (normalized.name === 'JsonWebTokenError' ? 401 : 500)
   const message = statusCode === 500 && process.env.NODE_ENV === 'production'
     ? 'Something went wrong on our end. Please try again later.'
     : normalized.message || 'Internal server error'
 
-  if (statusCode === 500) console.error('[error]', error)
+  if (statusCode === 500) {
+    console.error('[error] Internal server error:', error)
+  }
 
   res.status(statusCode).json({
     success: false,
