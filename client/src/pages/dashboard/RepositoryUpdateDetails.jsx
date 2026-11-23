@@ -5,7 +5,9 @@ import {
   LuArrowLeft,
   LuChevronDown,
   LuCircleCheck,
+  LuDownload,
   LuExternalLink,
+  LuFileText,
   LuFlame,
   LuFolderGit2,
   LuGitBranch,
@@ -71,6 +73,7 @@ export default function RepositoryUpdateDetails() {
   const [researchingAll, setResearchingAll] = useState(false)
   const [notFound, setNotFound] = useState(false)
   const [toast, setToast] = useState(null)
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
 
   // Drawer state
   const [selectedDependency, setSelectedDependency] = useState(null)
@@ -334,6 +337,42 @@ export default function RepositoryUpdateDetails() {
     }
   }
 
+  // Export full PDF report with all dependency statuses and AI suggestions
+  const handleExportPdf = async () => {
+    if (!repositoryId || downloadingPdf) return
+    setDownloadingPdf(true)
+    setToast({
+      type: 'info',
+      title: 'Generating PDF Report…',
+      message: 'Compiling dependency data, Firecrawl research, and AI suggestions into PDF…',
+    })
+    try {
+      const { blob, filename } = await updatesApi.exportRepositoryPdf(repositoryId)
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const defaultName = `${(repository.fullName || repository.name || 'repository').replace(/[^a-zA-Z0-9_-]/g, '_')}-dependency-intelligence.pdf`
+      a.download = filename || defaultName
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      setToast({
+        type: 'success',
+        title: 'PDF Report Ready',
+        message: 'Intelligence audit PDF report downloaded successfully.',
+      })
+    } catch (error) {
+      setToast({
+        type: 'error',
+        title: 'Could not export PDF',
+        message: getErrorMessage(error),
+      })
+    } finally {
+      setDownloadingPdf(false)
+    }
+  }
+
   if (notFound) {
     return (
       <div>
@@ -438,6 +477,16 @@ export default function RepositoryUpdateDetails() {
               title="Research official changelogs, migration guides, and breaking changes with Firecrawl"
             >
               Research with Firecrawl
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={LuDownload}
+              loading={downloadingPdf}
+              onClick={handleExportPdf}
+              title="Download comprehensive PDF report with dependency statuses, Firecrawl research, and AI suggestions"
+            >
+              Export PDF
             </Button>
           </div>
         }
@@ -750,17 +799,28 @@ export default function RepositoryUpdateDetails() {
                     {isCompleted ? 'Close' : 'Run in Background'}
                   </Button>
                   {isCompleted && (
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      leftIcon={LuCircleCheck}
-                      onClick={() => {
-                        setShowResearchModal(false)
-                        silentRefresh()
-                      }}
-                    >
-                      View Intelligence Results
-                    </Button>
+                    <>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        leftIcon={LuDownload}
+                        loading={downloadingPdf}
+                        onClick={handleExportPdf}
+                      >
+                        Download PDF Report
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        leftIcon={LuCircleCheck}
+                        onClick={() => {
+                          setShowResearchModal(false)
+                          silentRefresh()
+                        }}
+                      >
+                        View Intelligence Results
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>
@@ -875,6 +935,18 @@ export default function RepositoryUpdateDetails() {
                       {isCompleted ? '0s (Done)' : `~${formatEtaTime(etaSeconds)}`}
                     </p>
                   </div>
+                  {isCompleted && (
+                    <button
+                      type="button"
+                      onClick={handleExportPdf}
+                      disabled={downloadingPdf}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 transition cursor-pointer shadow-2xs"
+                      title="Download comprehensive dependency intelligence audit PDF"
+                    >
+                      <LuDownload className="h-3.5 w-3.5" />
+                      <span>{downloadingPdf ? 'Exporting...' : 'Download PDF'}</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setShowResearchModal(true)}

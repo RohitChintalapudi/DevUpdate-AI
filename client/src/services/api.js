@@ -150,6 +150,15 @@ export const updatesApi = {
     api.post(`/updates/dependency/${dependencyId}/analyze`).then((res) => res.data),
   getAnalysis: (dependencyId) =>
     api.get(`/updates/dependency/${dependencyId}/analysis`).then((res) => res.data),
+  exportRepositoryPdf: (repositoryId) =>
+    api.get(`/updates/repository/${repositoryId}/export-pdf`, { responseType: 'blob' }).then((res) => {
+      const disposition = res.headers['content-disposition'] || ''
+      const match = disposition.match(/filename="?([^";]+)"?/)
+      return {
+        blob: res.data,
+        filename: match?.[1] || `repository-dependency-intelligence.pdf`,
+      }
+    }),
 }
 
 export const memoryApi = {

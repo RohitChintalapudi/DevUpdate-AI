@@ -5,6 +5,7 @@ import {
   checkDependency,
   checkRepository,
   dependencyDetails,
+  exportRepositoryPdf,
   getDependencyAnalysisEndpoint,
   getDependencyResearchEndpoint,
   getRepositoryResearchStatusEndpoint,
@@ -33,6 +34,7 @@ router.get('/status/:repositoryId', status)
 router.post('/check-all', checkAll)
 router.post('/repository/:repositoryId/check', checkRepository)
 router.get('/repository/:repositoryId', repositoryDetails)
+router.get('/repository/:repositoryId/export-pdf', exportRepositoryPdf)
 router.post('/repository/:repositoryId/research', triggerRepositoryResearch)
 router.get('/repository/:repositoryId/research-status', getRepositoryResearchStatusEndpoint)
 router.get('/repository/:repositoryId/dependencies', repositoryDependencies)

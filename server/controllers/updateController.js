@@ -7,8 +7,9 @@ import Repository from '../models/Repository.js'
 import UpdateHistory from '../models/UpdateHistory.js'
 import UpdateJob from '../models/UpdateJob.js'
 import { normalizeEcosystem } from '../constants/updateEcosystems.js'
-import { asyncHandler } from '../utils/errors.js'
+import { AppError, asyncHandler } from '../utils/errors.js'
 import { isValidObjectId, requireObjectId, sanitizeText } from '../utils/sanitize.js'
+import { generateRepositoryIntelligencePdf } from '../services/reports/repositoryPdfService.js'
 import { checkDependencyNow } from '../services/updateIntelligence/updateEngine/repositoryAnalyzer.js'
 import {
   queueAllUpdates,
@@ -1206,4 +1207,45 @@ export const getDependencyAnalysisEndpoint = asyncHandler(async (req, res) => {
     success: true,
     analysis,
   })
+})
+
+export const exportRepositoryPdf = asyncHandler(async (req, res) => {
+  const repositoryId = requireObjectId(req.params.repositoryId, 'repository id')
+  const userMatch = { $in: [toObjectId(req.user._id), String(req.user._id)] }
+  const repoObjId = toObjectId(repositoryId)
+
+  const repository = await Repository.findOne({
+    _id: repoObjId,
+    userId: userMatch,
+  }).lean()
+
+  if (!repository) {
+    throw new AppError('Repository not found.', 404)
+  }
+
+  const [updates, researchRecords, analysisRecords] = await Promise.all([
+    DependencyUpdate.find({ repositoryId: repoObjId, userId: userMatch })
+      .sort({ packageName: 1 })
+      .lean(),
+    DependencyResearch.find({ repositoryId: repoObjId, userId: userMatch }).lean(),
+    AIAnalysis.find({ repositoryId: repoObjId, userId: userMatch }).lean(),
+  ])
+
+  const pdfBuffer = await generateRepositoryIntelligencePdf({
+    repository,
+    updates,
+    researchRecords,
+    analysisRecords,
+    user: req.user,
+  })
+
+  const rawName = repository.fullName || repository.name || 'repository'
+  const safeRepoName = rawName.replace(/[^a-zA-Z0-9_-]/g, '_')
+  const dateStr = new Date().toISOString().slice(0, 10)
+  const filename = `${safeRepoName}-dependency-intelligence-${dateStr}.pdf`
+
+  res.setHeader('Content-Type', 'application/pdf')
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+  res.setHeader('Content-Length', pdfBuffer.length)
+  return res.end(pdfBuffer)
 })
