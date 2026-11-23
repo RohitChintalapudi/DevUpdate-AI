@@ -9,12 +9,13 @@ function getSecret() {
 
 export function signToken(userId) {
   return jwt.sign({ id: userId }, getSecret(), {
-    expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+    expiresIn: process.env.JWT_EXPIRES_IN || '24h',
   })
 }
 
 export function cookieOptions(remember = false) {
-  const maxAge = (remember ? 30 : 7) * 24 * 60 * 60 * 1000
+  // Session strictly expires after 24 hours (86,400,000 ms) requiring re-login
+  const maxAge = 24 * 60 * 60 * 1000
   return {
     httpOnly: true,
     secure: process.env.COOKIE_SECURE === 'true',

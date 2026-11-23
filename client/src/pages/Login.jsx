@@ -47,6 +47,8 @@ export default function Login() {
     }
   }
 
+  const isSessionExpired = location.search.includes('expired=1')
+
   return (
     <AuthLayout
       title="Welcome Back"
@@ -61,6 +63,16 @@ export default function Login() {
         </p>
       }
     >
+      {isSessionExpired && !serverError ? (
+        <div
+          role="alert"
+          className="mb-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11.5px] text-amber-800"
+        >
+          <LuCircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />
+          <span>Your 24-hour security session has expired. Please sign in again to continue.</span>
+        </div>
+      ) : null}
+
       {serverError ? (
         <div
           role="alert"
@@ -109,14 +121,14 @@ export default function Login() {
         </div>
 
         <div className="flex items-center justify-between gap-3 pt-0.5">
-          <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-600">
+          <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-slate-600" title="Keeps you signed in up to 24 hours">
             <input
               type="checkbox"
               checked={form.remember}
               onChange={(event) => setForm({ ...form, remember: event.target.checked })}
               className="h-3.5 w-3.5 rounded border-slate-300 text-slate-950 focus:ring-slate-950/20"
             />
-            Remember me
+            Remember me <span className="text-[10px] text-slate-400 font-normal">(24h)</span>
           </label>
           <Link
             to="/forgot-password"

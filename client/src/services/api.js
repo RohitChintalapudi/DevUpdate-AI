@@ -36,6 +36,30 @@ api.interceptors.request.use(async (config) => {
   return config
 })
 
+// Automatically handle session expiration (24hr access token lifetime)
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 401) {
+      const url = error.config?.url || ''
+      const isPublicAuthCheck =
+        url.includes('/auth/session') ||
+        url.includes('/auth/login') ||
+        url.includes('/auth/signup') ||
+        url.includes('/auth/csrf')
+
+      if (
+        !isPublicAuthCheck &&
+        typeof window !== 'undefined' &&
+        window.location.pathname.startsWith('/dashboard')
+      ) {
+        window.location.href = '/login?expired=1'
+      }
+    }
+    return Promise.reject(error)
+  },
+)
+
 export function getErrorMessage(error, fallback = 'Something went wrong. Please try again.') {
   if (error?.response?.data?.message) return error.response.data.message
   if (error?.code === 'ERR_NETWORK') {
