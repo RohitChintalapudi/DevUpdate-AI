@@ -56,6 +56,9 @@ export function generateRepositoryIntelligencePdf({
       if (a.dependencyId) analysisByPackage.set(String(a.dependencyId), a)
     }
 
+    // Filter out dependencies starting with '@' so PDF stays clean and focused on primary packages
+    const cleanUpdates = (updates || []).filter((u) => u.packageName && !u.packageName.startsWith('@'))
+
     // Categorize updates into canonical 3 statuses:
     // 1. Needs Upgrade (Minor / Patch / Update Available)
     // 2. Outdated (Major shifts)
@@ -64,7 +67,7 @@ export function generateRepositoryIntelligencePdf({
     const outdated = []
     const upToDate = []
 
-    for (const u of updates) {
+    for (const u of cleanUpdates) {
       const type = (u.updateType || '').toUpperCase()
       const status = (u.updateStatus || '').toUpperCase()
 
@@ -78,7 +81,7 @@ export function generateRepositoryIntelligencePdf({
     }
 
     let researchedCount = 0
-    for (const u of updates) {
+    for (const u of cleanUpdates) {
       if (u.researchStatus === 'COMPLETED' || u.researchId || researchByPackage.has((u.packageName || '').toLowerCase())) {
         researchedCount += 1
       }
@@ -128,7 +131,7 @@ export function generateRepositoryIntelligencePdf({
     const cardHeight = 44
 
     const metrics = [
-      { label: 'TOTAL DEPS', value: updates.length, color: '#475569', bg: '#f1f5f9' },
+      { label: 'TOTAL DEPS', value: cleanUpdates.length, color: '#475569', bg: '#f1f5f9' },
       { label: 'NEEDS UPGRADE', value: needsUpgrade.length, color: '#d97706', bg: '#fef3c7' },
       { label: 'OUTDATED', value: outdated.length, color: '#e11d48', bg: '#ffe4e6' },
       { label: 'UP TO DATE', value: upToDate.length, color: '#059669', bg: '#d1fae5' },

@@ -1180,7 +1180,7 @@ export default function RepositoryUpdateDetails() {
           </div>
         ) : data?.updates?.length ? (
           <UpdateTable
-            updates={data.updates}
+            updates={(data.updates || []).filter((u) => u.packageName && !u.packageName.startsWith('@'))}
             showRepository={false}
             onSelectDependency={(u) => setSelectedDependency(u)}
             onQuickResearch={handleQuickResearch}

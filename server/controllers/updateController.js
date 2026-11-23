@@ -128,9 +128,10 @@ function countField(field, value) {
 async function repositorySummaries(userId, query = {}) {
   const userObjId = toObjectId(userId)
   const userMatch = { $in: [userObjId, String(userObjId)] }
+  const nonAtMatch = { $not: /^@/ }
   const [stats, repositories, depStats, researchStats] = await Promise.all([
     DependencyUpdate.aggregate([
-      { $match: { userId: userMatch } },
+      { $match: { userId: userMatch, packageName: nonAtMatch } },
       {
         $group: {
           _id: '$repositoryId',
@@ -153,7 +154,7 @@ async function repositorySummaries(userId, query = {}) {
       .select('fullName name owner htmlUrl language visibility defaultBranch branch scanStatus updateCheckStatus lastUpdateCheckAt lastScannedAt lastUpdated createdAt')
       .lean(),
     Dependency.aggregate([
-      { $match: { userId: userMatch } },
+      { $match: { userId: userMatch, packageName: nonAtMatch } },
       {
         $group: {
           _id: '$repositoryId',
@@ -163,7 +164,7 @@ async function repositorySummaries(userId, query = {}) {
       },
     ]),
     DependencyResearch.aggregate([
-      { $match: { userId: userMatch } },
+      { $match: { userId: userMatch, packageName: nonAtMatch } },
       {
         $group: {
           _id: '$repositoryId',
@@ -413,9 +414,9 @@ export const listRepositories = asyncHandler(async (req, res) => {
 })
 
 export const listUpdates = asyncHandler(async (req, res) => {
-  const match = { userId: req.user._id }
+  const match = { userId: req.user._id, packageName: { $not: /^@/ } }
   const search = sanitizeText(req.query.search, 120)
-  if (search) match.packageName = { $regex: escapeRegex(search), $options: 'i' }
+  if (search) match.packageName = { $regex: escapeRegex(search), $options: 'i', $not: /^@/ }
 
   const ecosystem = normalizeEcosystem(req.query.ecosystem)
   if (ecosystem) match.ecosystem = { $regex: `^${ecosystem.label}$`, $options: 'i' }
@@ -579,9 +580,10 @@ export const repositoryDetails = asyncHandler(async (req, res) => {
 
   await healLegacyRecords(userObjId, repoObjId)
 
-  const match = { userId: userObjId, repositoryId: repoObjId }
+  const nonAtMatch = { $not: /^@/ }
+  const match = { userId: userObjId, repositoryId: repoObjId, packageName: nonAtMatch }
   const search = sanitizeText(req.query.search, 120)
-  if (search) match.packageName = { $regex: escapeRegex(search), $options: 'i' }
+  if (search) match.packageName = { $regex: escapeRegex(search), $options: 'i', $not: /^@/ }
   const ecosystem = normalizeEcosystem(req.query.ecosystem)
   if (ecosystem) match.ecosystem = { $regex: `^${ecosystem.label}$`, $options: 'i' }
   if (req.query.updateStatus) {
@@ -619,6 +621,7 @@ export const repositoryDetails = asyncHandler(async (req, res) => {
           $and: [
             { userId: { $in: [userObjId, String(userObjId)] } },
             { repositoryId: { $in: [repoObjId, String(repoObjId)] } },
+            { packageName: nonAtMatch },
           ],
         },
       },
@@ -640,8 +643,8 @@ export const repositoryDetails = asyncHandler(async (req, res) => {
         },
       },
     ]),
-    Dependency.countDocuments({ userId: userObjId, repositoryId: repoObjId }),
-    Dependency.countDocuments({ userId: userObjId, repositoryId: repoObjId, isDevelopmentDependency: false }),
+    Dependency.countDocuments({ userId: userObjId, repositoryId: repoObjId, packageName: nonAtMatch }),
+    Dependency.countDocuments({ userId: userObjId, repositoryId: repoObjId, isDevelopmentDependency: false, packageName: nonAtMatch }),
     UpdateJob.findOne({ userId: userObjId, repositoryId: repoObjId }).sort({ createdAt: -1 }).lean(),
     Repository.find({ userId: userObjId })
       .select('name fullName owner language')
@@ -649,6 +652,7 @@ export const repositoryDetails = asyncHandler(async (req, res) => {
       .lean(),
     DependencyResearch.countDocuments({
       repositoryId: repoObjId,
+      packageName: nonAtMatch,
       researchStatus: { $in: ['COMPLETED', 'PARTIAL'] },
     }),
   ])
@@ -1016,9 +1020,9 @@ export const repositoryDependencies = asyncHandler(async (req, res) => {
     }
   }
 
-  const match = { userId: userObjId, repositoryId: repoObjId }
+  const match = { userId: userObjId, repositoryId: repoObjId, packageName: { $not: /^@/ } }
   if (req.query.search) {
-    match.packageName = { $regex: escapeRegex(req.query.search), $options: 'i' }
+    match.packageName = { $regex: escapeRegex(req.query.search), $options: 'i', $not: /^@/ }
   }
   if (req.query.researchStatus) {
     match.researchStatus = sanitizeText(req.query.researchStatus, 40).toUpperCase()
@@ -1223,12 +1227,13 @@ export const exportRepositoryPdf = asyncHandler(async (req, res) => {
     throw new AppError('Repository not found.', 404)
   }
 
+  const nonAtMatch = { $not: /^@/ }
   const [updates, researchRecords, analysisRecords] = await Promise.all([
-    DependencyUpdate.find({ repositoryId: repoObjId, userId: userMatch })
+    DependencyUpdate.find({ repositoryId: repoObjId, userId: userMatch, packageName: nonAtMatch })
       .sort({ packageName: 1 })
       .lean(),
-    DependencyResearch.find({ repositoryId: repoObjId, userId: userMatch }).lean(),
-    AIAnalysis.find({ repositoryId: repoObjId, userId: userMatch }).lean(),
+    DependencyResearch.find({ repositoryId: repoObjId, userId: userMatch, packageName: nonAtMatch }).lean(),
+    AIAnalysis.find({ repositoryId: repoObjId, userId: userMatch, packageName: nonAtMatch }).lean(),
   ])
 
   const pdfBuffer = await generateRepositoryIntelligencePdf({

@@ -548,9 +548,10 @@ export async function queueRepositoryResearch({ userId, repositoryId, dependency
   const idMatch = { $in: [repoObjId, String(repoObjId)] }
   const userMatch = { $in: [userObjId, String(userObjId)] }
 
+  const nonAtMatch = { $not: /^@/ }
   const [rawDependencies, rawUpdates] = await Promise.all([
-    Dependency.find({ userId: userMatch, repositoryId: idMatch }).lean(),
-    DependencyUpdate.find({ userId: userMatch, repositoryId: idMatch }).lean(),
+    Dependency.find({ userId: userMatch, repositoryId: idMatch, packageName: nonAtMatch }).lean(),
+    DependencyUpdate.find({ userId: userMatch, repositoryId: idMatch, packageName: nonAtMatch }).lean(),
   ])
 
   let dependencies = rawDependencies
@@ -565,6 +566,9 @@ export async function queueRepositoryResearch({ userId, repositoryId, dependency
       classification: u.classification || 'INTERNAL',
     }))
   }
+
+  // Filter out dependencies starting with '@' so Firecrawl focuses exclusively on primary libraries
+  dependencies = dependencies.filter((d) => d.packageName && !d.packageName.startsWith('@'))
 
   if (dependencyIds.length > 0) {
     const targetSet = new Set(dependencyIds.map(String))
