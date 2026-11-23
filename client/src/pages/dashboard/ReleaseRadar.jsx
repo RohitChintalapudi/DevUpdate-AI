@@ -178,8 +178,8 @@ export default function ReleaseRadar() {
       </PageHeader>
 
       {/* Top Stat Cards: Small Square Boxes */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="w-28 sm:w-36">
+      <div className="grid grid-cols-2 gap-2.5 max-w-xs sm:flex sm:flex-wrap sm:items-center sm:gap-3 sm:max-w-none">
+        <div className="w-full sm:w-36">
           <StatCard
             square
             index={0}
@@ -190,7 +190,7 @@ export default function ReleaseRadar() {
             tone="cyan"
           />
         </div>
-        <div className="w-28 sm:w-36">
+        <div className="w-full sm:w-36">
           <StatCard
             square
             index={1}
@@ -201,7 +201,7 @@ export default function ReleaseRadar() {
             tone="warning"
           />
         </div>
-        <div className="w-28 sm:w-36">
+        <div className="w-full sm:w-36">
           <StatCard
             square
             index={2}
@@ -212,7 +212,7 @@ export default function ReleaseRadar() {
             tone="danger"
           />
         </div>
-        <div className="w-28 sm:w-36">
+        <div className="w-full sm:w-36">
           <StatCard
             square
             index={3}
@@ -226,7 +226,7 @@ export default function ReleaseRadar() {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-xs lg:flex-row lg:items-center justify-between">
+      <div className="mt-6 flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-4 shadow-xs lg:flex-row lg:items-center justify-between">
         <Input
           icon={LuSearch}
           placeholder="Search package name, repository, or ecosystem…"
@@ -235,14 +235,14 @@ export default function ReleaseRadar() {
             setSearch(event.target.value)
             setPage(1)
           }}
-          className="lg:max-w-xs"
+          className="w-full lg:max-w-xs"
         />
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-2.5">
           {/* Time Window Filter (Past 6 Months Default) */}
           <select
             aria-label="Filter by time range"
-            className={`${selectClass} border-sky-300 bg-sky-50/50 text-sky-950 font-bold`}
+            className={`${selectClass} border-sky-300 bg-sky-50/50 text-sky-950 font-bold w-full sm:w-auto`}
             value={days}
             onChange={(e) => {
               setDays(e.target.value)
@@ -260,7 +260,7 @@ export default function ReleaseRadar() {
           {repositories.length > 0 && (
             <select
               aria-label="Filter by repository"
-              className={selectClass}
+              className={`${selectClass} w-full sm:w-auto`}
               value={repositoryId}
               onChange={(e) => {
                 setRepositoryId(e.target.value)
@@ -279,7 +279,7 @@ export default function ReleaseRadar() {
           {/* Strictly 3 Statuses */}
           <select
             aria-label="Filter by update status"
-            className={selectClass}
+            className={`${selectClass} w-full sm:w-auto`}
             value={updateStatus}
             onChange={(e) => {
               setUpdateStatus(e.target.value)
@@ -295,7 +295,7 @@ export default function ReleaseRadar() {
           {/* Update Type */}
           <select
             aria-label="Filter by update type"
-            className={selectClass}
+            className={`${selectClass} w-full sm:w-auto`}
             value={updateType}
             onChange={(e) => {
               setUpdateType(e.target.value)
@@ -311,7 +311,7 @@ export default function ReleaseRadar() {
           {/* Sort By */}
           <select
             aria-label="Sort updates"
-            className={selectClass}
+            className={`${selectClass} col-span-2 sm:col-span-1 w-full sm:w-auto`}
             value={sort}
             onChange={(e) => {
               setSort(e.target.value)
@@ -347,7 +347,7 @@ export default function ReleaseRadar() {
               return (
                 <div
                   key={String(update._id)}
-                  className="group relative flex flex-col justify-between rounded-3xl border border-slate-200/80 bg-white p-5 shadow-xs transition-all duration-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 overflow-hidden"
+                  className="group relative flex flex-col justify-between rounded-3xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs transition-all duration-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5 overflow-hidden"
                 >
                   {/* Subtle top indicator bar */}
                   <div
@@ -514,18 +514,20 @@ export default function ReleaseRadar() {
       {/* Pagination Controls */}
       {paginationMeta.total > 0 && (
         <div className="mt-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-200/80 pt-4">
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 text-center sm:text-left">
             Showing <strong>{(page - 1) * limit + 1}</strong> to{' '}
             <strong>{Math.min(page * limit, paginationMeta.total)}</strong> of{' '}
             <strong>{paginationMeta.total}</strong> recent updates
           </p>
 
-          <Pagination
-            page={page}
-            pages={paginationMeta.pages}
-            total={paginationMeta.total}
-            onPageChange={(p) => setPage(p)}
-          />
+          <div className="flex justify-center sm:justify-end">
+            <Pagination
+              page={page}
+              pages={paginationMeta.pages}
+              total={paginationMeta.total}
+              onPageChange={(p) => setPage(p)}
+            />
+          </div>
         </div>
       )}
 

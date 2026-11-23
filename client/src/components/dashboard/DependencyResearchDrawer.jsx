@@ -201,13 +201,13 @@ export default function DependencyResearchDrawer({
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/40 backdrop-blur-xs transition-opacity duration-300">
-      <div className="fixed inset-y-0 right-0 flex max-w-full pl-10">
+      <div className="fixed inset-y-0 right-0 flex max-w-full pl-0 sm:pl-10">
         <div className="w-screen max-w-2xl transform bg-white shadow-2xl transition-transform duration-300 ease-in-out sm:max-w-3xl">
           {/* Header */}
-          <div className="border-b border-slate-200/80 bg-slate-50/70 px-6 py-5">
-            <div className="flex items-start justify-between gap-4">
+          <div className="border-b border-slate-200/80 bg-slate-50/70 px-4 py-4 sm:px-6 sm:py-5">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                   <Badge tone={ecosystemTone[ecosystem] || 'neutral'}>{ecosystem}</Badge>
                   <Badge tone={classificationTone[classification] || 'neutral'}>
                     {classificationLabel[classification] || classification}
@@ -216,10 +216,10 @@ export default function DependencyResearchDrawer({
                     {researchStatusLabel[researchStatus] || researchStatus}
                   </Badge>
                 </div>
-                <h2 className="mt-2 text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">
+                <h2 className="mt-1.5 sm:mt-2 text-lg sm:text-2xl font-bold tracking-tight text-slate-950 truncate" title={packageName}>
                   {packageName}
                 </h2>
-                <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-1 text-xs text-slate-500">
                   <span>
                     Installed: <strong className="font-mono text-slate-700">{formatVersion(installedVersion)}</strong>
                   </span>
@@ -234,7 +234,7 @@ export default function DependencyResearchDrawer({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
                 <Button
                   variant="primary"
                   size="sm"
@@ -242,13 +242,14 @@ export default function DependencyResearchDrawer({
                   loading={researching}
                   onClick={() => handleTriggerResearch(true)}
                   title="Discover official release notes and changelogs with Firecrawl"
+                  className="text-xs"
                 >
                   {research ? 'Re-research' : 'Research with Firecrawl'}
                 </Button>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-lg p-2 text-slate-400 hover:bg-slate-200/60 hover:text-slate-600 transition"
+                  className="rounded-lg p-1.5 sm:p-2 text-slate-400 hover:bg-slate-200/60 hover:text-slate-600 transition"
                   aria-label="Close drawer"
                 >
                   <LuX className="h-5 w-5" />
@@ -256,8 +257,8 @@ export default function DependencyResearchDrawer({
               </div>
             </div>
 
-            {/* Navigation Tabs */}
-            <nav className="mt-5 flex space-x-1 border-b border-slate-200/60 -mb-5" aria-label="Tabs">
+            {/* Navigation Tabs (Smooth touch-scrollable on mobile, clean horizontal on desktop) */}
+            <nav className="mt-4 sm:mt-5 flex space-x-1 border-b border-slate-200/60 -mb-4 sm:-mb-5 overflow-x-auto scrollbar-none pb-0.5 sm:pb-0" aria-label="Tabs">
               {TABS.map((tab) => {
                 const Icon = tab.icon
                 const isActive = activeTab === tab.id
@@ -265,7 +266,7 @@ export default function DependencyResearchDrawer({
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`group inline-flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-xs font-semibold transition ${
+                    className={`group inline-flex items-center gap-1.5 border-b-2 px-2.5 sm:px-3 py-2 sm:py-2.5 text-xs font-semibold shrink-0 whitespace-nowrap transition ${
                       isActive
                         ? 'border-sky-600 text-sky-600'
                         : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
@@ -280,7 +281,7 @@ export default function DependencyResearchDrawer({
           </div>
 
           {/* Body Content */}
-          <div className="scrollbar-slim h-[calc(100vh-140px)] overflow-y-auto p-6">
+          <div className="scrollbar-slim h-[calc(100dvh-150px)] sm:h-[calc(100vh-140px)] overflow-y-auto p-4 sm:p-6">
             {error && (
               <div className="mb-6 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs text-rose-800">
                 <LuTriangleAlert className="h-4 w-4 shrink-0 text-rose-600 mt-0.5" />
