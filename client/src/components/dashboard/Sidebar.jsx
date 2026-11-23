@@ -46,6 +46,14 @@ const PRIMARY_NAV_ITEMS = [
       pathname.startsWith('/dashboard/reports'),
   },
   {
+    label: 'AI Intelligence',
+    path: '/dashboard/ai',
+    icon: LuSparkles,
+    isMatch: (pathname) =>
+      pathname.startsWith('/dashboard/ai') ||
+      pathname.startsWith('/dashboard/recommendations'),
+  },
+  {
     label: 'Release Radar',
     path: '/dashboard/radar',
     icon: LuRadio,

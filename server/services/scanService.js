@@ -1,6 +1,7 @@
 import GitHubConnection from '../models/GitHubConnection.js'
 import Repository from '../models/Repository.js'
 import Dependency from '../models/Dependency.js'
+import DependencyUpdate from '../models/DependencyUpdate.js'
 import ScanJob from '../models/ScanJob.js'
 import { AppError } from '../utils/errors.js'
 import {

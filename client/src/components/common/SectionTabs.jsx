@@ -26,6 +26,17 @@ const SECTION_TABS = {
     { label: 'Security & Advisories', path: '/dashboard/vulnerabilities', icon: LuShieldAlert },
     { label: 'Reports', path: '/dashboard/reports', icon: LuChartNoAxesCombined },
   ],
+  ai: [
+    { label: 'AI Overview', path: '/dashboard/ai', icon: LuBot },
+    { label: 'Recommendations', path: '/dashboard/recommendations', icon: LuSparkles },
+    { label: 'Research Library', path: '/dashboard/ai/research', icon: LuBookOpen },
+    { label: 'Repository Chat', path: '/dashboard/ai/chat', icon: LuMessageSquare },
+  ],
+  memento: [
+    { label: 'Memory', path: '/dashboard/memory', icon: LuBrain },
+    { label: 'Change History', path: '/dashboard/history', icon: LuClock3 },
+    { label: 'Decision Feedback', path: '/dashboard/feedback', icon: LuThumbsUp },
+  ],
 }
 
 export default function SectionTabs({ section, className = '' }) {
@@ -45,6 +56,7 @@ export default function SectionTabs({ section, className = '' }) {
             end={
               tab.path === '/dashboard/updates' ||
               tab.path === '/dashboard/repositories' ||
+              tab.path === '/dashboard/ai' ||
               tab.path === '/dashboard/memory'
             }
             className={({ isActive }) =>

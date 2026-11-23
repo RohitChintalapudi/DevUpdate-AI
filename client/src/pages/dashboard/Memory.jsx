@@ -21,6 +21,7 @@ import Button from '../../components/common/Button'
 import Card from '../../components/common/Card'
 import EmptyState from '../../components/common/EmptyState'
 import PageHeader from '../../components/common/PageHeader'
+import SectionTabs from '../../components/common/SectionTabs'
 import Skeleton from '../../components/common/Skeleton'
 import StatCard from '../../components/common/StatCard'
 import Toast from '../../components/common/Toast'
@@ -240,6 +241,8 @@ export default function Memory() {
           </div>
         }
       />
+
+      <SectionTabs section="memento" />
 
       {/* Presentation Explainer Hero Banner */}
       <div className="mb-6 rounded-2xl border border-sky-200/80 bg-gradient-to-br from-sky-50/90 via-blue-50/40 to-white p-5 shadow-xs relative overflow-hidden">

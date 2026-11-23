@@ -12,6 +12,10 @@ const routeNames = {
   '/dashboard/intelligence': 'Update Intelligence',
   '/dashboard/updates': 'Dependency Updates',
   '/dashboard/vulnerabilities': 'Vulnerabilities',
+  '/dashboard/ai': 'AI Overview',
+  '/dashboard/ai/research': 'Research Library',
+  '/dashboard/ai/chat': 'Repository Chat',
+  '/dashboard/recommendations': 'AI Recommendations',
   '/dashboard/memory': 'Repository Memory',
   '/dashboard/history': 'Change History',
   '/dashboard/feedback': 'Decision Feedback',
@@ -45,7 +49,9 @@ export default function Topbar({ onOpenMobileNav, onOpenLogout }) {
       ? 'Repository Updates'
       : path.startsWith('/dashboard/updates/')
         ? 'Dependency Update'
-        : 'Dashboard')
+        : path.startsWith('/dashboard/ai/analysis/')
+          ? 'Analysis Detail'
+          : 'Dashboard')
   const initials = (user?.name || 'DU')
     .split(' ')
     .map((part) => part[0])
