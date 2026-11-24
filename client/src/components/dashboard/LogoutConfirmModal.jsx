@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LuLogOut, LuShieldAlert } from 'react-icons/lu'
+import { LuLogOut } from 'react-icons/lu'
 import Modal from '../common/Modal'
 import Button from '../common/Button'
 import { useAuth } from '../../context/AuthContext'
