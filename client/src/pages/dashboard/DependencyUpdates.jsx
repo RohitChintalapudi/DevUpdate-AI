@@ -2,22 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   LuArrowRight,
-  LuBookOpen,
-  LuCalendar,
-  LuClock,
   LuExternalLink,
-  LuFlame,
   LuFolderGit2,
-  LuGitBranch,
-  LuLayers,
   LuPackage,
   LuRefreshCw,
   LuSearch,
-  LuShieldAlert,
-  LuSparkles,
-  LuTriangleAlert,
 } from 'react-icons/lu'
-import Badge from '../../components/common/Badge'
 import Button from '../../components/common/Button'
 import EmptyState from '../../components/common/EmptyState'
 import Input from '../../components/common/Input'
@@ -30,11 +20,7 @@ import UpdateTable from '../../components/dashboard/UpdateTable'
 import DependencyResearchDrawer from '../../components/dashboard/DependencyResearchDrawer'
 import useDebounce from '../../hooks/useDebounce'
 import { getErrorMessage, updatesApi } from '../../services/api'
-import {
-  formatDate,
-  researchStatusLabel,
-  researchStatusTone,
-} from '../../utils/updateHelpers'
+import { formatDate } from '../../utils/updateHelpers'
 
 const selectClass =
   'h-10 rounded-xl border border-line bg-canvas/60 px-3 text-xs text-ink outline-none transition focus:border-brandlight/60'
