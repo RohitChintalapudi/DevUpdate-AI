@@ -14,7 +14,6 @@ import {
   LuSparkles,
   LuThumbsUp,
   LuTrash2,
-  LuTriangleAlert,
 } from 'react-icons/lu'
 import Badge from '../../components/common/Badge'
 import Button from '../../components/common/Button'
