@@ -120,10 +120,17 @@ export default function DependencyUpdates() {
   }, [debouncedSearch, ecosystem, repositoryId, updateType, securityStatus, sort, page])
 
   useEffect(() => {
-    if (viewTab === 'repositories') {
-      loadRepositories()
-    } else {
-      loadInventory()
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled) return
+      if (viewTab === 'repositories') {
+        loadRepositories()
+      } else {
+        loadInventory()
+      }
+    })
+    return () => {
+      cancelled = true
     }
   }, [viewTab, loadRepositories, loadInventory])
 

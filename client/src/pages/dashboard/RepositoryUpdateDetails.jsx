@@ -157,17 +157,19 @@ export default function RepositoryUpdateDetails() {
 
   // Auto-updating on opening repository when dependencies exist but updates haven't been checked
   useEffect(() => {
-    if (!data || hasAutoChecked.current) return
-    const repo = data.repository
-    const stats = data.stats
-    const totalCount = stats?.total || stats?.totalDependencies || 0
-    const needsCheck =
-      (!repo?.lastUpdateCheckAt ||
-        repo?.updateCheckStatus === 'NOT_CHECKED' ||
-        (stats?.upToDate === 0 && stats?.updateAvailable === 0 && stats?.outdated === 0)) &&
-      totalCount > 0
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled || !data || hasAutoChecked.current) return
+      const repo = data.repository
+      const stats = data.stats
+      const totalCount = stats?.total || stats?.totalDependencies || 0
+      const needsCheck =
+        (!repo?.lastUpdateCheckAt ||
+          repo?.updateCheckStatus === 'NOT_CHECKED' ||
+          (stats?.upToDate === 0 && stats?.updateAvailable === 0 && stats?.outdated === 0)) &&
+        totalCount > 0
 
-    if (needsCheck) {
+      if (!needsCheck) return
       hasAutoChecked.current = true
       setAutoUpdating(true)
       const runAutoUpdate = async () => {
@@ -187,6 +189,9 @@ export default function RepositoryUpdateDetails() {
         }
       }
       runAutoUpdate()
+    })
+    return () => {
+      cancelled = true
     }
   }, [data, repositoryId, silentRefresh])
 
