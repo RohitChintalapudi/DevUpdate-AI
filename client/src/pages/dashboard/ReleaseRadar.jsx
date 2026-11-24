@@ -2,8 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   LuArrowRight,
-  LuBookOpen,
-  LuCircleCheck,
   LuClock3,
   LuExternalLink,
   LuFlame,
@@ -13,19 +11,15 @@ import {
   LuRefreshCw,
   LuSearch,
   LuShieldAlert,
-  LuShieldCheck,
-  LuSparkles,
   LuTrendingUp,
   LuTriangleAlert,
 } from 'react-icons/lu'
 import Badge from '../../components/common/Badge'
 import Button from '../../components/common/Button'
-import Card from '../../components/common/Card'
 import EmptyState from '../../components/common/EmptyState'
 import Input from '../../components/common/Input'
 import PageHeader from '../../components/common/PageHeader'
 import Pagination from '../../components/common/Pagination'
-import Skeleton, { RepositoryCardSkeleton } from '../../components/common/Skeleton'
 import StatCard from '../../components/common/StatCard'
 import Toast from '../../components/common/Toast'
 import DependencyResearchDrawer from '../../components/dashboard/DependencyResearchDrawer'
@@ -34,7 +28,6 @@ import useDebounce from '../../hooks/useDebounce'
 import { getErrorMessage, updatesApi } from '../../services/api'
 import {
   ecosystemTone,
-  formatDate,
   formatVersion,
   getCanonicalUpdateStatus,
   updateStatusLabel,
@@ -70,7 +63,7 @@ export default function ReleaseRadar() {
   const [updateType, setUpdateType] = useState('')
   const [sort, setSort] = useState('checked')
   const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(12)
+  const limit = 12
 
   const [data, setData] = useState(null)
   const [universalData, setUniversalData] = useState(null)
@@ -389,7 +382,6 @@ export default function ReleaseRadar() {
               const canonical = getCanonicalUpdateStatus(update)
               const research = update.researchId || {}
               const breakingChangesCount = research.breakingChanges?.length || 0
-              const findingsCount = research.findings?.length || 0
               const repository = update.repositoryId || {}
               const releaseDateStr = update.latestReleaseDate || research.researchedAt || update.lastCheckedAt
 
