@@ -3,15 +3,11 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   LuArrowLeft,
-  LuChevronDown,
   LuCircleCheck,
   LuDownload,
   LuExternalLink,
-  LuFileText,
   LuFlame,
-  LuFolderGit2,
   LuGitBranch,
-  LuLayers,
   LuPackage,
   LuRefreshCw,
   LuSearch,
