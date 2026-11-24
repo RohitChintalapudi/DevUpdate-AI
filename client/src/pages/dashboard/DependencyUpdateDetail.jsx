@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { LuArrowLeft, LuCalendarDays, LuCircleCheck, LuExternalLink, LuFlame, LuGitBranch, LuPackage, LuRefreshCw, LuShieldAlert, LuSparkles, LuTriangleAlert } from 'react-icons/lu'
+import { LuArrowLeft, LuCalendarDays, LuCircleCheck, LuExternalLink, LuFlame, LuGitBranch, LuPackage, LuRefreshCw, LuShieldAlert, LuTriangleAlert } from 'react-icons/lu'
 import Badge from '../../components/common/Badge'
 import Button from '../../components/common/Button'
 import EmptyState from '../../components/common/EmptyState'
