@@ -2,17 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   LuArrowRight,
   LuBookOpen,
-  LuBot,
-  LuCalendar,
   LuCircleCheck,
-  LuClock,
   LuExternalLink,
   LuFileText,
   LuFlame,
   LuGitBranch,
   LuGitPullRequest,
   LuInfo,
-  LuLayers,
   LuPackage,
   LuRefreshCw,
   LuShieldAlert,
@@ -52,7 +48,7 @@ const TABS = [
 
 export default function DependencyResearchDrawer({
   dependencyId,
-  repositoryId,
+  _repositoryId,
   open,
   onClose,
   onResearchUpdated,
