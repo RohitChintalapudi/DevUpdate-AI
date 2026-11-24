@@ -75,12 +75,19 @@ export default function DependencyResearchDrawer({
   }, [dependencyId])
 
   useEffect(() => {
-    if (open && dependencyId) {
-      loadData()
-      setActiveTab('overview')
-    } else {
-      setData(null)
-      setError('')
+    let cancelled = false
+    queueMicrotask(() => {
+      if (cancelled) return
+      if (open && dependencyId) {
+        setActiveTab('overview')
+        loadData()
+      } else {
+        setData(null)
+        setError('')
+      }
+    })
+    return () => {
+      cancelled = true
     }
   }, [open, dependencyId, loadData])
 
