@@ -16,6 +16,7 @@ const scanJobSchema = new Schema(
       filesDiscovered: { type: Number, default: 0 },
       manifestsProcessed: { type: Number, default: 0 },
       dependenciesExtracted: { type: Number, default: 0 },
+      dependenciesDiscovered: { type: Number, default: 0 },
       message: { type: String, default: '' },
     },
     error: { type: String, default: '' },

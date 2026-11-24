@@ -4,6 +4,9 @@ import { connectDB } from './config/db.js'
 import { recoverStaleScans } from './services/scanService.js'
 import { recoverStaleUpdateJobs } from './services/updateIntelligence/updateEngine/updateScheduler.js'
 import { recoverStaleAiJobs } from './services/ai/jobs/aiScheduler.js'
+import { recoverStaleResearchJobs } from './services/updateIntelligence/research/dependencyResearchService.js'
+import { deduplicateAllUpdates } from './services/updateIntelligence/updateEngine/deduplicateUpdates.js'
+import { pruneAllRepositoriesToPopularDependencies } from './services/updateIntelligence/popularity/popularDependencyReconciler.js'
 import { expireStaleMemories } from './services/memory/memoryService.js'
 import app from './app.js'
 
@@ -32,11 +35,18 @@ async function start() {
     recoverStaleScans(),
     recoverStaleUpdateJobs(),
     recoverStaleAiJobs(),
+    recoverStaleResearchJobs(),
+    (async () => {
+      await deduplicateAllUpdates()
+      const totals = await pruneAllRepositoriesToPopularDependencies()
+      console.log('[popularity] Startup ranking:', totals)
+      return totals
+    })(),
     expireStaleMemories(),
   ]).then((results) => {
     results.forEach((res, index) => {
       if (res.status === 'rejected') {
-        const names = ['scans', 'update jobs', 'AI jobs', 'memory expiry']
+        const names = ['scans', 'update jobs', 'AI jobs', 'research jobs', 'update dedupe + popularity', 'memory expiry']
         console.warn(`[server] Recovery for ${names[index]} deferred:`, res.reason?.message || res.reason)
       }
     })

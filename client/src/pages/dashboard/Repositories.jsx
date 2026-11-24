@@ -10,6 +10,7 @@ import { RepositoryCardSkeleton } from '../../components/common/Skeleton'
 import Toast from '../../components/common/Toast'
 import SectionTabs from '../../components/common/SectionTabs'
 import GitHubConnect from '../../components/dashboard/GitHubConnect'
+import GitHubDisconnectModal from '../../components/dashboard/GitHubDisconnectModal'
 import RepositoryCard from '../../components/dashboard/RepositoryCard'
 import useDebounce from '../../hooks/useDebounce'
 import { useAuth } from '../../context/AuthContext'
@@ -47,6 +48,9 @@ export default function Repositories() {
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 })
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
+  const [slowWait, setSlowWait] = useState(false)
+  const [disconnectOpen, setDisconnectOpen] = useState(false)
+  const [disconnecting, setDisconnecting] = useState(false)
   const [busyRepo, setBusyRepo] = useState('')
   const [toast, setToast] = useState(null)
 
@@ -70,6 +74,7 @@ export default function Repositories() {
     try {
       const data = await githubApi.status()
       setConnection(data)
+      setConnectionError(data?.message || '')
       return data
     } catch (error) {
       notify({ type: 'error', title: 'Could not load GitHub status', message: getErrorMessage(error) })
@@ -99,45 +104,66 @@ export default function Repositories() {
     }
   }, [debouncedSearch, language, visibility, status, sort, page, notify])
 
-  // Initial connection verification and automated repository dependency sync
+  // Keep the latest loader available without restarting connection verification
+  // every time a filter changes.
+  const loadRepositoriesRef = useRef(loadRepositories)
   useEffect(() => {
-    let active = true
-    const init = async () => {
-      setCheckingConnection(true)
-      const startTime = Date.now()
+    loadRepositoriesRef.current = loadRepositories
+  }, [loadRepositories])
 
+  // Verify the token and keep the spinner up while the server finishes its
+  // background repository sync. No artificial delay — we wait only as long as
+  // GitHub actually needs.
+  const verifyAndLoad = useCallback(
+    async (isActive = () => true) => {
+      setCheckingConnection(true)
+      setSlowWait(false)
       try {
-        const data = await loadConnection()
-        if (!active) return
+        let data = await loadConnection()
+        while (data?.syncing && isActive()) {
+          await new Promise((resolve) => setTimeout(resolve, 1800))
+          data = await loadConnection()
+        }
+        if (!isActive()) return
 
         if (data?.connected) {
-          if (!data.repositoryCount || data.repositoryCount === 0) {
-            await repositoriesApi.sync().catch(() => null)
-          }
-          await loadRepositories()
-        } else {
+          await loadRepositoriesRef.current()
+        } else if (data) {
           setRepositories([])
           setLoading(false)
         }
-      } catch (err) {
-        console.error('Failed to initialize GitHub state:', err)
+        // A failed status request returns null. Keep the saved connection and
+        // repository list intact instead of treating a network hiccup as a
+        // disconnection.
+      } catch (error) {
+        console.error('Failed to initialize GitHub state:', error)
       } finally {
-        // Enforce smooth 3.2s minimum duration so user sees the connection establish smoothly
-        const elapsed = Date.now() - startTime
-        const minDuration = 3200
-        if (elapsed < minDuration) {
-          await new Promise((resolve) => setTimeout(resolve, minDuration - elapsed))
-        }
-        if (active) {
+        if (isActive()) {
           setCheckingConnection(false)
+          setSlowWait(false)
         }
       }
-    }
-    init()
+    },
+    [loadConnection],
+  )
+
+  useEffect(() => {
+    let active = true
+    // Defer out of the effect body so the initial load stays cancelable
+    // without triggering a synchronous state update during render commit.
+    const timer = setTimeout(() => verifyAndLoad(() => active), 0)
     return () => {
       active = false
+      clearTimeout(timer)
     }
-  }, [loadConnection, loadRepositories])
+  }, [verifyAndLoad])
+
+  // Show a reassuring note if verification/sync is taking a while.
+  useEffect(() => {
+    if (!checkingConnection) return undefined
+    const timer = setTimeout(() => setSlowWait(true), 8000)
+    return () => clearTimeout(timer)
+  }, [checkingConnection])
 
   // Filter and pagination change listener
   useEffect(() => {
@@ -186,11 +212,7 @@ export default function Repositories() {
       const message = new URLSearchParams(location.search).get('message') || ''
       if (flag === 'connected') {
         notify({ type: 'success', title: 'GitHub connected', message })
-        const data = await loadConnection()
-        if (data?.connected) {
-          await repositoriesApi.sync().catch(() => null)
-          await loadRepositories()
-        }
+        await verifyAndLoad()
       } else {
         setPhase('failed')
         setConnectionError(message)
@@ -199,7 +221,7 @@ export default function Repositories() {
       navigate(location.pathname, { replace: true })
     }
     handleCallback()
-  }, [location.pathname, location.search, loadConnection, loadRepositories, navigate, notify])
+  }, [location.pathname, location.search, verifyAndLoad, navigate, notify])
 
   const handleConnect = async () => {
     setPhase('connecting')
@@ -217,33 +239,49 @@ export default function Repositories() {
     }
   }
 
-  const handleDisconnect = async () => {
-    setPhase('reconnecting')
+  const confirmDisconnect = async () => {
+    setDisconnecting(true)
     try {
       await githubApi.disconnect()
+      setDisconnectOpen(false)
       setConnection(null)
       setRepositories([])
-      setPhase('idle')
-      notify({ type: 'success', title: 'GitHub disconnected', message: 'Local scan data was removed.' })
+      setConnectionError('')
+      notify({
+        type: 'success',
+        title: 'GitHub disconnected',
+        message: 'Cleanup is running in the background. Your local scan data is being removed.',
+      })
     } catch (error) {
-      setPhase('idle')
       notify({ type: 'error', title: 'Disconnect failed', message: getErrorMessage(error) })
+    } finally {
+      setDisconnecting(false)
     }
   }
 
   const handleAnalyze = async (repository) => {
     setBusyRepo(repository._id)
     try {
-      await repositoriesApi.analyze(repository._id)
+      const data = await repositoriesApi.analyze(repository._id)
       notify({
         type: 'success',
         title: 'Scan queued',
-        message: `${repository.name} is being scanned in the background.`,
+        message: data?.message || `${repository.name} is being scanned in the background.`,
       })
       navigate(`/dashboard/repositories/${repository._id}`)
     } catch (error) {
+      // A repeated click can race the first request. Reuse the existing job
+      // instead of showing two misleading toasts and reloading the list.
+      if (error?.response?.status === 409 && error.response.data?.scanJob) {
+        notify({
+          type: 'info',
+          title: 'Scan already running',
+          message: 'Opened the existing scan progress for this repository.',
+        })
+        navigate(`/dashboard/repositories/${repository._id}`)
+        return
+      }
       notify({ type: 'error', title: 'Could not start scan', message: getErrorMessage(error) })
-      loadRepositories()
     } finally {
       setBusyRepo('')
     }
@@ -277,10 +315,12 @@ export default function Repositories() {
       <GitHubConnect
         status={connection}
         checking={checkingConnection}
+        syncing={syncing}
+        slowWait={slowWait}
         phase={phase}
         error={connectionError}
         onConnect={handleConnect}
-        onDisconnect={handleDisconnect}
+        onDisconnect={() => setDisconnectOpen(true)}
         onSync={syncRepositories}
       />
 
@@ -409,6 +449,11 @@ export default function Repositories() {
               <p className="mt-3 text-[11px] font-medium text-slate-400">
                 Securing repository integration…
               </p>
+              {slowWait ? (
+                <p className="mt-2 text-[11px] font-medium text-amber-600">
+                  Still working… GitHub can be slow sometimes. Please keep this page open.
+                </p>
+              ) : null}
             </div>
             {/* Skeletons preview underneath */}
             <div className="mt-8 grid gap-4 opacity-50 md:grid-cols-2 xl:grid-cols-3">
@@ -487,6 +532,14 @@ export default function Repositories() {
           </Button>
         </div>
       ) : null}
+
+      <GitHubDisconnectModal
+        open={disconnectOpen}
+        onClose={() => setDisconnectOpen(false)}
+        onConfirm={confirmDisconnect}
+        busy={disconnecting}
+        username={connection?.profile?.username}
+      />
 
       <Toast toast={toast} onDismiss={() => setToast(null)} />
     </div>

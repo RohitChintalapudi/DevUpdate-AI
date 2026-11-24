@@ -26,7 +26,7 @@ import Skeleton from '../../components/common/Skeleton'
 import StatCard from '../../components/common/StatCard'
 import Toast from '../../components/common/Toast'
 import { formatDate } from '../../utils/updateHelpers'
-import { feedbackApi, getErrorMessage, historyApi, memoryApi, repositoriesApi } from '../../services/api'
+import { feedbackApi, getErrorMessage, githubApi, historyApi, memoryApi, repositoriesApi } from '../../services/api'
 
 const categoryTone = {
   PROJECT: 'violet',
@@ -51,10 +51,14 @@ const verificationTone = {
 }
 
 const emptyForm = { title: '', content: '', category: 'PROJECT' }
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export default function Memory() {
   const [repositories, setRepositories] = useState([])
   const [repositoryId, setRepositoryId] = useState('')
+  const [githubStatus, setGithubStatus] = useState(null)
+  const [syncingRepositories, setSyncingRepositories] = useState(false)
+  const [refreshingRepositories, setRefreshingRepositories] = useState(false)
   const [status, setStatus] = useState(null)
   const [items, setItems] = useState([])
   const [decisions, setDecisions] = useState([])
@@ -74,34 +78,91 @@ export default function Memory() {
     return () => clearTimeout(timer)
   }, [toast])
 
+  const applyRepositories = useCallback((rows) => {
+    setRepositories(rows)
+    setRepositoryId((current) =>
+      current && rows.some((row) => String(row._id) === current)
+        ? current
+        : rows[0]?._id || '',
+    )
+  }, [])
+
+  // Load GitHub status first, then wait briefly for a background repository
+  // sync instead of leaving Memento's dropdown empty on the first render.
+  const loadRepositories = useCallback(
+    async (isActive = () => true) => {
+      setRefreshingRepositories(true)
+      try {
+        let gh = await githubApi.status()
+        if (!isActive()) return
+        setGithubStatus(gh)
+        setSyncingRepositories(Boolean(gh?.syncing))
+
+        for (let attempt = 0; attempt < 8; attempt += 1) {
+          const repoResult = await repositoriesApi.list({ limit: 50 })
+          if (!isActive()) return
+          const rows = repoResult.repositories || []
+          applyRepositories(rows)
+          if (!gh?.connected || rows.length || !gh?.syncing) break
+
+          await sleep(1500)
+          gh = await githubApi.status()
+          if (!isActive()) return
+          setGithubStatus(gh)
+          setSyncingRepositories(Boolean(gh?.syncing))
+        }
+      } catch (error) {
+        if (isActive()) {
+          setToast({ type: 'error', title: 'Could not load Memento data', message: getErrorMessage(error) })
+        }
+      } finally {
+        if (isActive()) {
+          setSyncingRepositories(false)
+          setRefreshingRepositories(false)
+          setLoading(false)
+        }
+      }
+    },
+    [applyRepositories],
+  )
+
+  const refreshRepositories = useCallback(async () => {
+    setRefreshingRepositories(true)
+    try {
+      await repositoriesApi.sync()
+      const [gh, repoResult] = await Promise.all([githubApi.status(), repositoriesApi.list({ limit: 50 })])
+      setGithubStatus(gh)
+      applyRepositories(repoResult.repositories || [])
+      setToast({
+        type: 'success',
+        title: 'Repositories refreshed',
+        message: `${repoResult.repositories?.length || 0} repositories available for Memento.`,
+      })
+    } catch (error) {
+      setToast({ type: 'error', title: 'Could not refresh repositories', message: getErrorMessage(error) })
+    } finally {
+      setRefreshingRepositories(false)
+    }
+  }, [applyRepositories])
+
   // Initial load: repositories and memory service status
   useEffect(() => {
     let active = true
-    Promise.all([
-      repositoriesApi.list({ limit: 50 }),
-      memoryApi.status(),
-    ])
-      .then(([repoResult, statusResult]) => {
-        if (!active) return
-        const rows = repoResult.repositories || []
-        setRepositories(rows)
-        setRepositoryId((current) =>
-          current && rows.some((row) => String(row._id) === current)
-            ? current
-            : rows[0]?._id || '',
-        )
-        setStatus(statusResult)
-      })
-      .catch((error) => {
-        if (active) setToast({ type: 'error', title: 'Could not load Memento data', message: getErrorMessage(error) })
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
+    const run = async () => {
+      setLoading(true)
+      try {
+        const statusResult = await memoryApi.status()
+        if (active) setStatus(statusResult)
+      } catch (error) {
+        if (active) setToast({ type: 'error', title: 'Could not load Memento status', message: getErrorMessage(error) })
+      }
+      await loadRepositories(() => active)
+    }
+    run()
     return () => {
       active = false
     }
-  }, [])
+  }, [loadRepositories])
 
   // Consolidated load: memories, decisions, and history for the selected repository
   const loadConsolidatedData = useCallback(async () => {
@@ -227,6 +288,16 @@ export default function Memory() {
         description="The long-term memory engine that prevents AI amnesia. Preserves architectural constraints, developer decisions, and dependency policies across scans."
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              leftIcon={LuRefreshCw}
+              loading={refreshingRepositories}
+              onClick={refreshRepositories}
+              title="Refresh repositories from GitHub"
+            >
+              Refresh Repositories
+            </Button>
             <Button
               variant="secondary"
               size="sm"
@@ -374,19 +445,35 @@ export default function Memory() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+        <div className="flex w-full flex-col items-stretch gap-1.5 sm:w-auto sm:items-end">
           <select
             aria-label="Select repository"
-            className="h-9 w-full sm:w-72 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 shadow-2xs hover:border-slate-300 focus:border-sky-500 focus:outline-hidden"
+            className="h-9 w-full sm:w-72 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-800 shadow-2xs hover:border-slate-300 focus:border-sky-500 focus:outline-hidden disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
             value={repositoryId}
+            disabled={!repositories.length}
             onChange={(e) => setRepositoryId(e.target.value)}
           >
+            <option value="">
+              {repositories.length
+                ? 'Select repository'
+                : syncingRepositories
+                  ? 'Loading repositories…'
+                  : 'No repositories available'}
+            </option>
             {repositories.map((repo) => (
               <option key={String(repo._id)} value={repo._id}>
                 {repo.fullName || repo.name}
               </option>
             ))}
           </select>
+          <p className="text-[11px] text-slate-500">
+            {syncingRepositories
+              ? 'Syncing your GitHub repositories…'
+              : githubStatus?.message ||
+                (repositories.length
+                  ? `${repositories.length} repositories available`
+                  : 'Connect or refresh GitHub to populate this list.')}
+          </p>
         </div>
       </div>
 
@@ -400,8 +487,21 @@ export default function Memory() {
         <div className="mt-6">
           <EmptyState
             icon={LuBrainCircuit}
-            title="No connected repositories"
-            description="Connect your GitHub account and scan a repository before creating persistent memory."
+            title={syncingRepositories ? 'Loading repositories…' : 'No connected repositories'}
+            description={
+              githubStatus?.message ||
+              'Connect your GitHub account, or refresh repositories, before creating persistent memory.'
+            }
+            action={
+              <Button
+                variant="secondary"
+                leftIcon={LuRefreshCw}
+                loading={refreshingRepositories}
+                onClick={refreshRepositories}
+              >
+                Refresh Repositories
+              </Button>
+            }
           />
         </div>
       ) : (

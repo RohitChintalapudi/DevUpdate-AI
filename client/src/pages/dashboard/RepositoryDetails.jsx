@@ -10,6 +10,7 @@ import Skeleton, { TableSkeleton } from '../../components/common/Skeleton'
 import StatCard from '../../components/common/StatCard'
 import Toast from '../../components/common/Toast'
 import DependencyTable from '../../components/dashboard/DependencyTable'
+import ScanProgress from '../../components/dashboard/ScanProgress'
 import { getErrorMessage, dependenciesApi, repositoriesApi } from '../../services/api'
 
 const statusTone = {
@@ -67,7 +68,7 @@ export default function RepositoryDetails() {
 
   const loadDependencies = useCallback(async () => {
     try {
-      const data = await dependenciesApi.byRepository(id, { limit: 100, sort: 'name' })
+      const data = await dependenciesApi.byRepository(id, { limit: 100, sort: 'popular' })
       const cleanList = (data.dependencies || []).filter(
         (dep) => dep.packageName && !dep.packageName.startsWith('@'),
       )
@@ -234,11 +235,21 @@ export default function RepositoryDetails() {
         </div>
       </PageHeader>
 
+      {scanningNow ? (
+        <ScanProgress
+          status={repository.scanStatus}
+          progress={progress}
+          manifestCount={repository.manifestFiles?.length || 0}
+          repositoryName={repository.name}
+          startedAt={scanJob?.startedAt || scanJob?.createdAt}
+        />
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Dependencies"
           value={repository.dependencyCount || 0}
-          description="Unique packages extracted"
+          description={`Top ${repository.dependencyCount || 0} of ${repository.discoveredDependencyCount || repository.dependencyCount || 0} discovered`}
           icon={LuPackage}
           tone="violet"
           index={0}
@@ -268,28 +279,6 @@ export default function RepositoryDetails() {
           index={3}
         />
       </div>
-
-      {scanningNow ? (
-        <div className="mt-6 rounded-2xl border border-brand/25 bg-brand/[0.06] p-5">
-          <div className="flex items-center justify-between gap-4">
-            <p className="text-sm font-semibold text-ink">Scan in progress</p>
-            <span className="text-xs text-brandlight">{progress.message || 'Working…'}</span>
-          </div>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/[0.06]">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-brand to-accent transition-all duration-500"
-              style={{
-                width: `${Math.min(100, Math.max(8, ((progress.manifestsProcessed || 0) / Math.max(1, repository.manifestFiles?.length || 1)) * 100))}%`,
-              }}
-            />
-          </div>
-          <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-muted">
-            <span>{progress.filesDiscovered || 0} files discovered</span>
-            <span>{progress.manifestsProcessed || 0} manifests processed</span>
-            <span>{progress.dependenciesExtracted || 0} dependencies extracted</span>
-          </div>
-        </div>
-      ) : null}
 
       {repository.lastScanError ? (
         <div className="mt-6 flex items-start gap-3 rounded-2xl border border-danger/25 bg-danger/[0.06] p-4 text-sm text-danger">
@@ -364,9 +353,14 @@ export default function RepositoryDetails() {
       </div>
 
       <div className="mt-6">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-ink">Extracted dependencies</h3>
-          <span className="text-xs text-muted">{dependencies.length} shown</span>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-ink">Popular dependencies</h3>
+            <p className="mt-1 text-xs text-muted">
+              AI-selected from every discovered package by worldwide usage. Shown most popular first; the long tail is excluded from registry checks and research.
+            </p>
+          </div>
+          <span className="shrink-0 text-xs text-muted">{dependencies.length} shown</span>
         </div>
         {scanningNow && !dependencies.length ? (
           <div className="rounded-2xl border border-line bg-card/60"><TableSkeleton rows={4} /></div>

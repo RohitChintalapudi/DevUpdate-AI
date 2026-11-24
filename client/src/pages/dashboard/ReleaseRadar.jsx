@@ -29,6 +29,7 @@ import Skeleton, { RepositoryCardSkeleton } from '../../components/common/Skelet
 import StatCard from '../../components/common/StatCard'
 import Toast from '../../components/common/Toast'
 import DependencyResearchDrawer from '../../components/dashboard/DependencyResearchDrawer'
+import UniversalDependencyCard from '../../components/dashboard/UniversalDependencyCard'
 import useDebounce from '../../hooks/useDebounce'
 import { getErrorMessage, updatesApi } from '../../services/api'
 import {
@@ -43,6 +44,8 @@ import {
 
 const selectClass =
   'h-10 rounded-xl border border-slate-200/80 bg-white px-3 text-xs font-semibold text-slate-800 outline-none transition hover:border-slate-300 focus:border-sky-500 shadow-2xs'
+
+const UNIVERSAL_REPOSITORY_ID = '__universal__'
 
 function formatRelativeRelease(dateString) {
   if (!dateString) return 'Recent update'
@@ -70,6 +73,7 @@ export default function ReleaseRadar() {
   const [limit, setLimit] = useState(12)
 
   const [data, setData] = useState(null)
+  const [universalData, setUniversalData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState(null)
 
@@ -85,17 +89,22 @@ export default function ReleaseRadar() {
   const loadUpdates = useCallback(async () => {
     setLoading(true)
     try {
-      const response = await updatesApi.list({
-        search: debouncedSearch,
-        days: days === 'all' ? undefined : days,
-        repositoryId: repositoryId || undefined,
-        updateStatus: updateStatus || undefined,
-        updateType: updateType || undefined,
-        sort,
-        page,
-        limit,
-      })
-      setData(response)
+      if (repositoryId === UNIVERSAL_REPOSITORY_ID) {
+        const response = await updatesApi.universal()
+        setUniversalData(response)
+      } else {
+        const response = await updatesApi.list({
+          search: debouncedSearch,
+          days: days === 'all' ? undefined : days,
+          repositoryId: repositoryId || undefined,
+          updateStatus: updateStatus || undefined,
+          updateType: updateType || undefined,
+          sort,
+          page,
+          limit,
+        })
+        setData(response)
+      }
     } catch (error) {
       setToast({
         type: 'error',
@@ -124,18 +133,33 @@ export default function ReleaseRadar() {
   const paginationMeta = data?.pagination || { page: 1, limit: 12, total: 0, pages: 1 }
   const apiStats = data?.stats || {}
 
-  // Radar metrics derived from backend aggregation or returned feed
-  const totalInWindow = apiStats.total || paginationMeta.total || updates.length
-  const needsUpgradeCount =
-    apiStats.needsUpgrade !== undefined
+  const isUniversal = repositoryId === UNIVERSAL_REPOSITORY_ID
+  const universalStats = universalData?.stats || {}
+  const universalItems = (universalData?.items || []).filter((item) => {
+    if (!debouncedSearch) return true
+    const query = debouncedSearch.toLowerCase()
+    return [item.name, item.category, item.ecosystem, item.stackNote].some((value) =>
+      String(value || '').toLowerCase().includes(query),
+    )
+  })
+
+  // Radar metrics derived from backend aggregation, the returned feed, or the Universal catalog
+  const totalInWindow = isUniversal
+    ? universalStats.total || universalItems.length
+    : apiStats.total || paginationMeta.total || updates.length
+  const needsUpgradeCount = isUniversal
+    ? universalStats.live || 0
+    : apiStats.needsUpgrade !== undefined
       ? apiStats.needsUpgrade
       : updates.filter((u) => getCanonicalUpdateStatus(u) === 'UPDATE_AVAILABLE').length
-  const outdatedCount =
-    apiStats.outdated !== undefined
+  const outdatedCount = isUniversal
+    ? universalStats.curated || 0
+    : apiStats.outdated !== undefined
       ? apiStats.outdated
       : updates.filter((u) => getCanonicalUpdateStatus(u) === 'OUTDATED').length
-  const researchedCount =
-    apiStats.researched !== undefined
+  const researchedCount = isUniversal
+    ? universalItems.length
+    : apiStats.researched !== undefined
       ? apiStats.researched
       : updates.filter((u) => u.researchStatus === 'COMPLETED' || u.researchId).length
 
@@ -145,7 +169,11 @@ export default function ReleaseRadar() {
       <PageHeader
         eyebrow="Firecrawl ecosystem radar"
         title="Release Radar"
-        description="Live feed of recent dependency updates, official changelogs, and release notes captured by Firecrawl across your repositories from the past six months."
+        description={
+          isUniversal
+            ? 'A curated set of the 24 most widely used languages, frameworks, databases and tools, with their latest versions and short stack-specific upgrade notes.'
+            : 'Live feed of recent dependency updates, official changelogs, and release notes captured by Firecrawl across your repositories from the past six months.'
+        }
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Link to="/dashboard/updates">
@@ -169,10 +197,12 @@ export default function ReleaseRadar() {
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            Live 6-Month Rolling Window Active
+            {isUniversal ? 'Universal Catalog Active' : 'Live 6-Month Rolling Window Active'}
           </span>
           <span className="text-xs text-slate-500">
-            Scanning official package registries, changelogs, and GitHub releases.
+            {isUniversal
+              ? 'Latest versions checked against public registries; curated notes for languages and tools.'
+              : 'Scanning official package registries, changelogs, and GitHub releases.'}
           </span>
         </div>
       </PageHeader>
@@ -183,9 +213,9 @@ export default function ReleaseRadar() {
           <StatCard
             square
             index={0}
-            label="Recent Updates"
+            label={isUniversal ? 'Technologies' : 'Recent Updates'}
             value={totalInWindow}
-            description="Within 6 months"
+            description={isUniversal ? 'Universal catalog' : 'Within 6 months'}
             icon={LuRadio}
             tone="cyan"
           />
@@ -194,9 +224,9 @@ export default function ReleaseRadar() {
           <StatCard
             square
             index={1}
-            label="Needs Upgrade"
+            label={isUniversal ? 'Live Versions' : 'Needs Upgrade'}
             value={needsUpgradeCount}
-            description="Minor & patch releases"
+            description={isUniversal ? 'From public registries' : 'Minor & patch releases'}
             icon={LuTrendingUp}
             tone="warning"
           />
@@ -205,9 +235,9 @@ export default function ReleaseRadar() {
           <StatCard
             square
             index={2}
-            label="Outdated"
+            label={isUniversal ? 'Curated' : 'Outdated'}
             value={outdatedCount}
-            description="Major version shifts"
+            description={isUniversal ? 'Languages & tools' : 'Major version shifts'}
             icon={LuTriangleAlert}
             tone="danger"
           />
@@ -216,9 +246,9 @@ export default function ReleaseRadar() {
           <StatCard
             square
             index={3}
-            label="Researched"
+            label={isUniversal ? 'In Catalog' : 'Researched'}
             value={researchedCount}
-            description="Official docs verified"
+            description={isUniversal ? 'Top worldwide usage' : 'Official docs verified'}
             icon={LuFlame}
             tone="purple"
           />
@@ -240,7 +270,7 @@ export default function ReleaseRadar() {
 
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-2.5">
           {/* Time Window Filter (Past 6 Months Default) */}
-          <select
+          {!isUniversal && <select
             aria-label="Filter by time range"
             className={`${selectClass} border-sky-300 bg-sky-50/50 text-sky-950 font-bold w-full sm:w-auto`}
             value={days}
@@ -254,30 +284,29 @@ export default function ReleaseRadar() {
             <option value="90">Past 90 Days</option>
             <option value="365">Past 1 Year</option>
             <option value="all">All Time</option>
+          </select>}
+
+          {/* Source Selector: repositories plus the fixed Universal catalog */}
+          <select
+            aria-label="Filter by repository or Universal catalog"
+            className={`${selectClass} w-full sm:w-auto ${isUniversal ? 'border-violet-300 bg-violet-50 text-violet-900' : ''}`}
+            value={repositoryId}
+            onChange={(e) => {
+              setRepositoryId(e.target.value)
+              setPage(1)
+            }}
+          >
+            <option value="">All Repositories</option>
+            <option value={UNIVERSAL_REPOSITORY_ID}>Universal — Top 24 Technologies</option>
+            {repositories.map((repo) => (
+              <option key={repo._id} value={repo._id}>
+                {repo.fullName || repo.name}
+              </option>
+            ))}
           </select>
 
-          {/* Repository Selector */}
-          {repositories.length > 0 && (
-            <select
-              aria-label="Filter by repository"
-              className={`${selectClass} w-full sm:w-auto`}
-              value={repositoryId}
-              onChange={(e) => {
-                setRepositoryId(e.target.value)
-                setPage(1)
-              }}
-            >
-              <option value="">All Repositories</option>
-              {repositories.map((repo) => (
-                <option key={repo._id} value={repo._id}>
-                  {repo.fullName || repo.name}
-                </option>
-              ))}
-            </select>
-          )}
-
           {/* Strictly 3 Statuses */}
-          <select
+          {!isUniversal && <select
             aria-label="Filter by update status"
             className={`${selectClass} w-full sm:w-auto`}
             value={updateStatus}
@@ -290,10 +319,10 @@ export default function ReleaseRadar() {
             <option value="UPDATE_AVAILABLE">Needs Upgrade</option>
             <option value="OUTDATED">Outdated</option>
             <option value="UP_TO_DATE">Up to Date</option>
-          </select>
+          </select>}
 
           {/* Update Type */}
-          <select
+          {!isUniversal && <select
             aria-label="Filter by update type"
             className={`${selectClass} w-full sm:w-auto`}
             value={updateType}
@@ -306,10 +335,10 @@ export default function ReleaseRadar() {
             <option value="MAJOR">Major Updates</option>
             <option value="MINOR">Minor Updates</option>
             <option value="PATCH">Patch Updates</option>
-          </select>
+          </select>}
 
           {/* Sort By */}
-          <select
+          {!isUniversal && <select
             aria-label="Sort updates"
             className={`${selectClass} col-span-2 sm:col-span-1 w-full sm:w-auto`}
             value={sort}
@@ -322,13 +351,33 @@ export default function ReleaseRadar() {
             <option value="released">Release Date</option>
             <option value="name">Package Name</option>
             <option value="status">Update Status</option>
-          </select>
+          </select>}
         </div>
       </div>
 
       {/* Dependency Cards Grid */}
       <div className="mt-6">
-        {loading && !data ? (
+        {isUniversal ? (
+          loading && !universalData ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-64 rounded-3xl border border-slate-200 bg-white p-5 animate-pulse" />
+              ))}
+            </div>
+          ) : universalItems.length ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+              {universalItems.map((item) => (
+                <UniversalDependencyCard key={item.id} item={item} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              icon={LuPackage}
+              title="No universal technologies match"
+              description="Try a different search term."
+            />
+          )
+        ) : loading && !data ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="h-64 rounded-3xl border border-slate-200 bg-white p-5 animate-pulse" />
@@ -512,7 +561,7 @@ export default function ReleaseRadar() {
       </div>
 
       {/* Pagination Controls */}
-      {paginationMeta.total > 0 && (
+      {!isUniversal && paginationMeta.total > 0 && (
         <div className="mt-8 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-slate-200/80 pt-4">
           <p className="text-xs text-slate-500 text-center sm:text-left">
             Showing <strong>{(page - 1) * limit + 1}</strong> to{' '}

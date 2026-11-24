@@ -13,8 +13,9 @@ import {
   redactSensitive,
 } from '../utils/aiText.js'
 import { toGroqJsonSchema } from '../services/ai/providers/groqProvider.js'
-import { chatAnswerSchema, parseAiJson } from '../services/ai/schemas/aiSchemas.js'
+import { chatAnswerSchema, parseAiJson, researchKnowledgeFallbackSchema } from '../services/ai/schemas/aiSchemas.js'
 import { riskSchema } from '../services/ai/schemas/aiSchemas.js'
+import { buildResearchKnowledgeFallbackPrompt } from '../services/ai/prompts/aiPrompts.js'
 import { validateEvidence } from '../services/ai/validation/evidenceValidator.js'
 import { buildMetadataFilter, userNamespace } from '../services/ai/vector/pineconeStore.js'
 import { createAnalysisWorkflow } from '../services/ai/workflow/analysisWorkflow.js'
@@ -111,6 +112,32 @@ test('Groq JSON schema conversion is strict including nested objects', () => {
   )
   assert.ok(risk.properties.level.enum.includes('INSUFFICIENT_EVIDENCE') === false)
   assert.ok(risk.properties.level.enum.includes('UNKNOWN'))
+})
+
+test('AI knowledge fallback is explicit, bounded and unverified', () => {
+  const parsed = parseAiJson(
+    JSON.stringify({
+      summary: 'Small utility package; no official page was reachable.',
+      purpose: 'Provides shared error helpers.',
+      status: 'ACTIVE',
+      upgradeImpact: 'Likely low impact, but no release notes were verified.',
+      riskLevel: 'UNKNOWN',
+      recommendation: 'INSUFFICIENT_EVIDENCE',
+      confidence: 0.35,
+    }),
+    researchKnowledgeFallbackSchema,
+  )
+  assert.equal(parsed.ok, true)
+  assert.equal(parsed.data.status, 'ACTIVE')
+  assert.deepEqual(parsed.data.limitations, [])
+
+  const prompt = buildResearchKnowledgeFallbackPrompt({
+    update: { packageName: 'es-errors', ecosystem: 'npm', targetVersion: '6.1.1' },
+    reason: 'Firecrawl timed out',
+  })
+  assert.match(prompt, /UNVERIFIED fallback/)
+  assert.match(prompt, /es-errors/)
+  assert.match(prompt, /Firecrawl timed out/)
 })
 
 test('parseAiJson extracts JSON, applies defaults and rejects invalid output', () => {

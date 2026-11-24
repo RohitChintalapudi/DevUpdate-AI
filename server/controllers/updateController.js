@@ -10,7 +10,12 @@ import { normalizeEcosystem } from '../constants/updateEcosystems.js'
 import { AppError, asyncHandler } from '../utils/errors.js'
 import { isValidObjectId, requireObjectId, sanitizeText } from '../utils/sanitize.js'
 import { generateRepositoryIntelligencePdf } from '../services/reports/repositoryPdfService.js'
+import { getUniversalCatalog } from '../services/updateIntelligence/universal/universalCatalogService.js'
 import { checkDependencyNow } from '../services/updateIntelligence/updateEngine/repositoryAnalyzer.js'
+import {
+  deduplicateRepositoryUpdates,
+  ensureBaselineUpdateRecords,
+} from '../services/updateIntelligence/updateEngine/deduplicateUpdates.js'
 import {
   queueAllUpdates,
   queueRepositoryUpdate,
@@ -151,7 +156,7 @@ async function repositorySummaries(userId, query = {}) {
       },
     ]),
     Repository.find({ userId: userObjId })
-      .select('fullName name owner htmlUrl language visibility defaultBranch branch scanStatus updateCheckStatus lastUpdateCheckAt lastScannedAt lastUpdated createdAt')
+      .select('fullName name owner htmlUrl language visibility defaultBranch branch scanStatus updateCheckStatus lastUpdateCheckAt lastScannedAt lastUpdated createdAt dependencyCount discoveredDependencyCount')
       .lean(),
     Dependency.aggregate([
       { $match: { userId: userMatch, packageName: nonAtMatch } },
@@ -219,6 +224,7 @@ async function repositorySummaries(userId, query = {}) {
       lastScannedAt: repository.lastScannedAt || null,
       lastUpdated: repository.lastUpdated || repository.updatedAt || null,
       totalDependencies: totalDeps,
+      discoveredDependencyCount: repository.discoveredDependencyCount || totalDeps,
       coreDependencies: coreDeps,
       availableUpdates,
       vulnerabilityCount: item.vulnerable || 0,
@@ -542,32 +548,18 @@ export const repositoryDetails = asyncHandler(async (req, res) => {
   const userMatch = { $in: [userObjId, String(userObjId)] }
   const repoMatch = { $in: [repoObjId, String(repoObjId)] }
 
-  // Ensure baseline DependencyUpdate records exist for all scanned dependencies
-  const existingUpdateCount = await DependencyUpdate.countDocuments({ userId: userMatch, repositoryId: repoMatch })
-  const depTotalCount = await Dependency.countDocuments({ userId: userMatch, repositoryId: repoMatch })
+  // Ensure one baseline DependencyUpdate row per scanned dependency. Old scans
+  // left duplicate rows because dependency ids change on every rescan.
+  let [existingUpdateCount, depTotalCount] = await Promise.all([
+    DependencyUpdate.countDocuments({ userId: userMatch, repositoryId: repoMatch }),
+    Dependency.countDocuments({ userId: userMatch, repositoryId: repoMatch, packageName: { $not: /^@/ } }),
+  ])
+  if (existingUpdateCount > depTotalCount) {
+    await deduplicateRepositoryUpdates({ userId: userObjId, repositoryId: repoObjId }).catch(() => null)
+    existingUpdateCount = await DependencyUpdate.countDocuments({ userId: userMatch, repositoryId: repoMatch })
+  }
   if (existingUpdateCount === 0 && depTotalCount > 0) {
-    const rawDeps = await Dependency.find({ userId: userMatch, repositoryId: repoMatch }).lean()
-    if (rawDeps.length > 0) {
-      const records = rawDeps.map((d) => ({
-        userId: userObjId,
-        repositoryId: repoObjId,
-        dependencyId: d._id,
-        ecosystem: d.ecosystem,
-        packageName: d.packageName,
-        installedVersion: d.resolvedVersion || d.declaredVersion || '',
-        declaredVersion: d.declaredVersion || '',
-        resolvedVersion: d.resolvedVersion || '',
-        latestVersion: d.resolvedVersion || d.declaredVersion || '',
-        latestStableVersion: d.resolvedVersion || d.declaredVersion || '',
-        updateStatus: 'UNKNOWN',
-        updateType: 'NONE',
-        securityStatus: 'UNKNOWN',
-        researchStatus: 'NOT_RESEARCHED',
-        classification: d.classification || 'INTERNAL',
-        isDevelopmentDependency: Boolean(d.isDevelopmentDependency),
-      }))
-      await DependencyUpdate.insertMany(records, { ordered: false }).catch(() => null)
-    }
+    await ensureBaselineUpdateRecords({ userId: userObjId, repositoryId: repoObjId }).catch(() => null)
 
     // Auto-queue authoritative version verification if repository has never been checked
     if (
@@ -964,6 +956,7 @@ export const getRepositoryResearchStatusEndpoint = asyncHandler(async (req, res)
       RESEARCHING: activeJob?.status === 'RUNNING' ? 1 : (statusMap.RESEARCHING || 0),
       QUEUED: statusMap.QUEUED || 0,
       PARTIAL: statusMap.PARTIAL || 0,
+      SKIPPED: activeJob?.skipped || statusMap.PARTIAL || 0,
       FAILED: statusMap.FAILED || 0,
       NOT_RESEARCHED: statusMap.NOT_RESEARCHED || 0,
     },
@@ -984,32 +977,17 @@ export const repositoryDependencies = asyncHandler(async (req, res) => {
   const userMatch = { $in: [userObjId, String(userObjId)] }
   const repoMatch = { $in: [repoObjId, String(repoObjId)] }
 
-  // Ensure baseline DependencyUpdate records exist for all scanned dependencies
-  const existingUpdateCount = await DependencyUpdate.countDocuments({ userId: userMatch, repositoryId: repoMatch })
-  const depTotalCount = await Dependency.countDocuments({ userId: userMatch, repositoryId: repoMatch })
+  // Ensure one baseline DependencyUpdate row per scanned dependency.
+  let [existingUpdateCount, depTotalCount] = await Promise.all([
+    DependencyUpdate.countDocuments({ userId: userMatch, repositoryId: repoMatch }),
+    Dependency.countDocuments({ userId: userMatch, repositoryId: repoMatch, packageName: { $not: /^@/ } }),
+  ])
+  if (existingUpdateCount > depTotalCount) {
+    await deduplicateRepositoryUpdates({ userId: userObjId, repositoryId: repoObjId }).catch(() => null)
+    existingUpdateCount = await DependencyUpdate.countDocuments({ userId: userMatch, repositoryId: repoMatch })
+  }
   if (existingUpdateCount === 0 && depTotalCount > 0) {
-    const rawDeps = await Dependency.find({ userId: userMatch, repositoryId: repoMatch }).lean()
-    if (rawDeps.length > 0) {
-      const records = rawDeps.map((d) => ({
-        userId: userObjId,
-        repositoryId: repoObjId,
-        dependencyId: d._id,
-        ecosystem: d.ecosystem,
-        packageName: d.packageName,
-        installedVersion: d.resolvedVersion || d.declaredVersion || '',
-        declaredVersion: d.declaredVersion || '',
-        resolvedVersion: d.resolvedVersion || '',
-        latestVersion: d.resolvedVersion || d.declaredVersion || '',
-        latestStableVersion: d.resolvedVersion || d.declaredVersion || '',
-        updateStatus: 'UNKNOWN',
-        updateType: 'NONE',
-        securityStatus: 'UNKNOWN',
-        researchStatus: 'NOT_RESEARCHED',
-        classification: d.classification || 'INTERNAL',
-        isDevelopmentDependency: Boolean(d.isDevelopmentDependency),
-      }))
-      await DependencyUpdate.insertMany(records, { ordered: false }).catch(() => null)
-    }
+    await ensureBaselineUpdateRecords({ userId: userObjId, repositoryId: repoObjId }).catch(() => null)
 
     // Auto-queue authoritative version verification if repository has never been checked
     if (
@@ -1253,4 +1231,9 @@ export const exportRepositoryPdf = asyncHandler(async (req, res) => {
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
   res.setHeader('Content-Length', pdfBuffer.length)
   return res.end(pdfBuffer)
+})
+
+export const universalCatalog = asyncHandler(async (_req, res) => {
+  const { items, stats } = await getUniversalCatalog()
+  return res.json({ success: true, items, stats })
 })

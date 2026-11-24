@@ -7,6 +7,8 @@ import UpdateJob from '../../../models/UpdateJob.js'
 import { AppError } from '../../../utils/errors.js'
 import { isValidObjectId, mapLimit, sanitizeError } from '../../../utils/sanitize.js'
 import { analyzeDependency } from './dependencyAnalyzer.js'
+import { deduplicateRepositoryUpdates } from './deduplicateUpdates.js'
+import { dependencyKeyFor, dependencyUpdateMatch } from './dependencyIdentity.js'
 import { detectChanges, snapshotFrom } from './historyService.js'
 import { notifyUpdateChanges } from '../../notifications/notificationService.js'
 
@@ -56,21 +58,16 @@ async function refreshRepositoryCounters(userId, repositoryId, completedAt) {
 }
 
 export async function persistUpdateRecord(record) {
-  const userMatch = { $in: [toObjectId(record.userId), String(record.userId)] }
-  const depMatch = { $in: [toObjectId(record.dependencyId), String(record.dependencyId)] }
-
-  const existing = await DependencyUpdate.findOne({
-    userId: userMatch,
-    $or: [{ dependencyId: depMatch }, { _id: depMatch }],
-  }).lean()
-  const changes = detectChanges(existing, record)
+  // Rescans recreate Dependency documents, so dependencyId alone is not a
+  // stable identity. Upsert on the package identity and relink the current id.
+  const match = dependencyUpdateMatch(record)
+  const enriched = { ...record, dependencyKey: dependencyKeyFor(record) }
+  const existing = await DependencyUpdate.findOne(match).lean()
+  const changes = detectChanges(existing, enriched)
 
   const saved = await DependencyUpdate.findOneAndUpdate(
-    {
-      userId: userMatch,
-      $or: [{ dependencyId: depMatch }, { _id: depMatch }],
-    },
-    { $set: record, $setOnInsert: { createdAt: new Date() } },
+    match,
+    { $set: enriched, $setOnInsert: { createdAt: new Date() } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   )
 
@@ -116,10 +113,16 @@ async function analyzeSafely(dependency) {
       userId: dependency.userId,
       repositoryId: dependency.repositoryId,
       ecosystem: dependency.ecosystem || 'npm',
+      groupId: dependency.groupId || '',
+      artifactId: dependency.artifactId || '',
       packageName: dependency.packageName,
       declaredVersion: dependency.declaredVersion || '',
       resolvedVersion: dependency.resolvedVersion || '',
       installedVersion: fallbackVersion,
+      popularityScore: Number(dependency.popularityScore) || 0,
+      popularityDownloads: Number(dependency.popularityDownloads) || 0,
+      popularitySource: dependency.popularitySource || 'heuristic',
+      popularityRank: Number(dependency.popularityRank) || 0,
       latestVersion: cleanVersion,
       latestStableVersion: cleanVersion,
       latestCompatibleVersion: cleanVersion,
@@ -155,6 +158,9 @@ export async function runUpdateJob(jobId) {
   const repository = await Repository.findOne({ _id: job.repositoryId, userId: job.userId })
   if (!repository) throw new AppError('Repository not found for this update job.', 404)
 
+  // Self-heal rows duplicated by earlier scans before recounting anything.
+  await deduplicateRepositoryUpdates({ userId: job.userId, repositoryId: repository._id }).catch(() => null)
+
   await UpdateJob.updateOne(
     { _id: jobId },
     { $set: { status: 'SCANNING', startedAt: new Date(), error: '', 'progress.message': 'Checking registry and advisory data.' } },
@@ -166,7 +172,11 @@ export async function runUpdateJob(jobId) {
 
   const userMatch = { $in: [toObjectId(job.userId), String(job.userId)] }
   const repoMatch = { $in: [toObjectId(repository._id), String(repository._id)] }
-  let dependencies = await Dependency.find({ userId: userMatch, repositoryId: repoMatch }).lean()
+  let dependencies = await Dependency.find({
+    userId: userMatch,
+    repositoryId: repoMatch,
+    packageName: { $not: /^@/ },
+  }).lean()
   if (!dependencies.length) {
     const rawUpdates = await DependencyUpdate.find({ userId: userMatch, repositoryId: repoMatch }).lean()
     if (rawUpdates.length) {

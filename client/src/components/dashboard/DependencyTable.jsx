@@ -21,6 +21,13 @@ function formatDate(value) {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+function compactNumber(value) {
+  const count = Number(value) || 0
+  if (count >= 1_000_000) return `${Math.round(count / 100_000) / 10}M`
+  if (count >= 1_000) return `${Math.round(count / 100) / 10}k`
+  return String(count)
+}
+
 export default function DependencyTable({ dependencies = [], showRepository = true }) {
   const cleanDependencies = (dependencies || []).filter(
     (dependency) => dependency?.packageName && !dependency.packageName.startsWith('@'),
@@ -63,7 +70,17 @@ export default function DependencyTable({ dependencies = [], showRepository = tr
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-sky-100 bg-sky-50 text-sky-600">
                       <LuPackage className="h-4 w-4" />
                     </span>
-                    <span className="font-semibold text-slate-950">{dependency.packageName}</span>
+                    <div className="min-w-0">
+                      <span className="font-semibold text-slate-950">{dependency.packageName}</span>
+                      {dependency.popularityRank ? (
+                        <span className="mt-0.5 block text-[10.5px] text-muted">
+                          #{dependency.popularityRank}
+                          {dependency.popularityDownloads
+                            ? ` · ${compactNumber(dependency.popularityDownloads)}/period`
+                            : ''}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </td>
                 <td className="px-5 py-4">

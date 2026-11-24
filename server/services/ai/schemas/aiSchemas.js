@@ -143,6 +143,47 @@ export const researchExtractionSchema = z.object({
   breakingChangeHints: z.array(boundedText(1500)).max(30).default([]),
 })
 
+// Fast, explicitly unverified fallback used when Firecrawl cannot find a page.
+// It is never presented as official documentation.
+export const researchKnowledgeFallbackSchema = z.object({
+  summary: boundedText(1200),
+  purpose: z.string().trim().max(600).default(''),
+  status: z.enum(['STABLE', 'ACTIVE', 'MAINTENANCE', 'UNKNOWN']).default('UNKNOWN'),
+  upgradeImpact: z.string().trim().max(1200).default(''),
+  riskLevel: z.enum(['LOW', 'MEDIUM', 'HIGH', 'UNKNOWN']).default('UNKNOWN'),
+  recommendation: z
+    .enum([
+      'UPGRADE_RECOMMENDED',
+      'UPGRADE_WITH_CAUTION',
+      'REVIEW_BEFORE_UPGRADE',
+      'DEFER_UPGRADE',
+      'INSUFFICIENT_EVIDENCE',
+    ])
+    .default('INSUFFICIENT_EVIDENCE'),
+  confidence: z.number().min(0).max(1).default(0.35),
+  limitations: z.array(boundedText(500)).max(8).default([]),
+})
+
+// Used only as a last resort when registry metadata yields no researchable URL.
+// Every suggested URL is independently validated and fetched before it is used.
+export const researchSourceSuggestionSchema = z.object({
+  found: z.boolean().default(false),
+  sources: z
+    .array(
+      z.object({
+        url: z.string().trim().max(2000).default(''),
+        sourceType: z
+          .enum(['OFFICIAL_DOCS', 'RELEASE_NOTES', 'CHANGELOG', 'MIGRATION_GUIDE'])
+          .default('OFFICIAL_DOCS'),
+        reason: boundedText(300).default(''),
+      }),
+    )
+    .max(5)
+    .default([]),
+  versionHint: z.string().trim().max(80).default(''),
+  note: boundedText(500).default(''),
+})
+
 function extractJsonObject(value) {
   const text = String(value || '')
     .replace(/^```(?:json)?\s*/i, '')

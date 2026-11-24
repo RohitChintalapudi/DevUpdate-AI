@@ -13,7 +13,7 @@ import { motion } from 'framer-motion'
 import Card from '../../components/common/Card'
 import StatCard from '../../components/common/StatCard'
 import { useAuth } from '../../context/AuthContext'
-import { HealthChart, UpdateActivityChart } from '../../components/dashboard/Charts'
+import { HealthChart, LanguageChart } from '../../components/dashboard/Charts'
 import ActivityTimeline from '../../components/dashboard/ActivityTimeline'
 import AIInsightCard from '../../components/dashboard/AIInsightCard'
 import { dependenciesApi, notificationsApi, repositoriesApi, updatesApi } from '../../services/api'
@@ -28,6 +28,7 @@ export default function Overview() {
     dependenciesCount: 0,
     updatesCount: 0,
     vulnerabilitiesCount: 0,
+    languageDistribution: [],
     distribution: [],
     activity: [],
   })
@@ -42,7 +43,7 @@ export default function Overview() {
   const fetchOverviewData = useCallback(async () => {
     try {
       const [reposResult, updatesResult, notifsResult, depsResult] = await Promise.allSettled([
-        repositoriesApi.list({ limit: 1 }),
+        repositoriesApi.list({ limit: 50 }),
         updatesApi.overview(),
         notificationsApi.recent({ limit: 6 }),
         dependenciesApi.list({ limit: 1 }),
@@ -53,7 +54,16 @@ export default function Overview() {
       const notifsData = notifsResult.status === 'fulfilled' ? notifsResult.value : null
       const depsData = depsResult.status === 'fulfilled' ? depsResult.value : null
 
-      const repositoriesCount = reposData?.pagination?.total ?? reposData?.repositories?.length ?? 0
+      const repositories = reposData?.repositories || []
+      const repositoriesCount = reposData?.pagination?.total ?? repositories.length ?? 0
+      const languageCounts = repositories.reduce((counts, repo) => {
+        const language = repo.language || 'Unknown'
+        counts[language] = (counts[language] || 0) + 1
+        return counts
+      }, {})
+      const languageDistribution = Object.entries(languageCounts)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
       const dependenciesCount = updatesData?.stats?.totalDependencies ?? depsData?.pagination?.total ?? 0
       const updatesCount = (updatesData?.stats?.updateAvailable || 0) + (updatesData?.stats?.outdated || 0)
       const vulnerabilitiesCount = updatesData?.stats?.vulnerableDependencies || 0
@@ -65,6 +75,7 @@ export default function Overview() {
         dependenciesCount,
         updatesCount,
         vulnerabilitiesCount,
+        languageDistribution,
         distribution,
         activity,
       })
@@ -229,14 +240,14 @@ export default function Overview() {
           <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="label-caps">Analytics</p>
-              <h2 className="mt-1.5 text-base font-semibold text-ink">Dependency update activity</h2>
-              <p className="mt-1 text-[12px] text-muted">Weekly check activity across connected repositories</p>
+              <h2 className="mt-1.5 text-base font-semibold text-ink">Repository languages</h2>
+              <p className="mt-1 text-[12px] text-muted">Connected projects grouped by primary language</p>
             </div>
             <span className="rounded-lg border border-line px-2.5 py-1 text-[10px] text-muted">
-              Last 7 days
+              {stats.repositoriesCount} repositories
             </span>
           </div>
-          <UpdateActivityChart />
+          <LanguageChart items={stats.languageDistribution} />
         </Card>
 
         <Card>

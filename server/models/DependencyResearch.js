@@ -18,6 +18,7 @@ const researchFindingSchema = new Schema(
         'API_DOCS',
         'SECURITY_ADVISORY',
         'REGISTRY',
+        'AI_KNOWLEDGE',
       ],
       default: 'OFFICIAL_DOCS',
     },
@@ -57,6 +58,7 @@ const dependencyResearchSchema = new Schema(
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     repositoryId: { type: Schema.Types.ObjectId, ref: 'Repository', required: true, index: true },
     dependencyId: { type: Schema.Types.ObjectId, ref: 'Dependency', required: true, index: true },
+    dependencyKey: { type: String, default: '', index: true },
     updateId: { type: Schema.Types.ObjectId, ref: 'DependencyUpdate', default: null, index: true },
     packageName: { type: String, required: true, index: true },
     ecosystem: { type: String, required: true },
@@ -117,6 +119,7 @@ const dependencyResearchSchema = new Schema(
     },
     confidence: { type: Number, min: 0, max: 1, default: 0 },
     error: { type: String, default: '' },
+    limitations: { type: [String], default: [] },
     researchedAt: { type: Date, default: Date.now },
     expiresAt: { type: Date, default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
   },
@@ -127,6 +130,7 @@ dependencyResearchSchema.index(
   { userId: 1, repositoryId: 1, dependencyId: 1 },
   { unique: true, name: 'dependency_research_user_repo_dep_unique' },
 )
+dependencyResearchSchema.index({ userId: 1, repositoryId: 1, dependencyKey: 1 })
 
 dependencyResearchSchema.methods.toJSON = function toJSON() {
   const obj = this.toObject()

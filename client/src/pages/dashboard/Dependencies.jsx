@@ -24,7 +24,7 @@ export default function Dependencies() {
   const [ecosystem, setEcosystem] = useState('')
   const [repositoryId, setRepositoryId] = useState('')
   const [scope, setScope] = useState('')
-  const [sort, setSort] = useState('extracted')
+  const [sort, setSort] = useState('popular')
   const [page, setPage] = useState(1)
 
   const [data, setData] = useState({
@@ -167,6 +167,7 @@ export default function Dependencies() {
               setPage(1)
             }}
           >
+            <option value="popular">Most popular first</option>
             <option value="extracted">Recently extracted</option>
             <option value="name">Package name</option>
             <option value="ecosystem">Ecosystem</option>

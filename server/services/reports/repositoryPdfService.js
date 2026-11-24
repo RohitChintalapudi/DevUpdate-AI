@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit'
+import { generateRepositoryPdfSummary } from './pdfAiSummaryService.js'
 
 function safeDate(value) {
   if (!value) return new Date().toLocaleDateString('en-US', { dateStyle: 'medium' })
@@ -14,13 +15,20 @@ function truncate(str, max = 200) {
   return s.length > max ? s.slice(0, max - 3) + '...' : s
 }
 
-export function generateRepositoryIntelligencePdf({
+export async function generateRepositoryIntelligencePdf({
   repository = {},
   updates = [],
   researchRecords = [],
   analysisRecords = [],
   user = {},
 }) {
+  const aiSummary = await generateRepositoryPdfSummary({
+    repository,
+    updates,
+    researchRecords,
+    analysisRecords,
+  })
+
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       margin: 40,
@@ -30,7 +38,7 @@ export function generateRepositoryIntelligencePdf({
       info: {
         Title: `${repository.fullName || repository.name || 'Repository'} - Dependency Intelligence Audit`,
         Author: 'DevUpdate AI',
-        Subject: 'Dependency Update & Firecrawl Research Report',
+        Subject: 'Dependency Intelligence & Upgrade Guidance Report',
         Creator: 'DevUpdate AI Autonomous Engine',
       },
     })
@@ -80,13 +88,6 @@ export function generateRepositoryIntelligencePdf({
       }
     }
 
-    let researchedCount = 0
-    for (const u of cleanUpdates) {
-      if (u.researchStatus === 'COMPLETED' || u.researchId || researchByPackage.has((u.packageName || '').toLowerCase())) {
-        researchedCount += 1
-      }
-    }
-
     function checkAddPage(neededHeight = 60) {
       if (doc.y + neededHeight > doc.page.height - 50) {
         doc.addPage()
@@ -109,7 +110,7 @@ export function generateRepositoryIntelligencePdf({
 
     // DevUpdate AI Brand text
     doc.fillColor('#38bdf8').fontSize(9).font('Helvetica-Bold')
-      .text('DEVUPDATE AI  •  ECOSYSTEM RADAR & FIRECRAWL REPORT', leftMargin + 16, 42)
+      .text('DEVUPDATE AI  •  DEPENDENCY INTELLIGENCE REPORT', leftMargin + 16, 42)
 
     doc.fillColor('#ffffff').fontSize(16).font('Helvetica-Bold')
       .text(repository.fullName || repository.name || 'Repository Dependency Intelligence', leftMargin + 16, 56, {
@@ -126,7 +127,7 @@ export function generateRepositoryIntelligencePdf({
 
     // --- 2. Executive Metrics Summary Cards ---
     const cardGap = 8
-    const numCards = 5
+    const numCards = 4
     const cardWidth = (pageWidth - cardGap * (numCards - 1)) / numCards
     const cardHeight = 44
 
@@ -135,7 +136,6 @@ export function generateRepositoryIntelligencePdf({
       { label: 'NEEDS UPGRADE', value: needsUpgrade.length, color: '#d97706', bg: '#fef3c7' },
       { label: 'OUTDATED', value: outdated.length, color: '#e11d48', bg: '#ffe4e6' },
       { label: 'UP TO DATE', value: upToDate.length, color: '#059669', bg: '#d1fae5' },
-      { label: 'RESEARCHED', value: researchedCount, color: '#0284c7', bg: '#e0f2fe' },
     ]
 
     metrics.forEach((m, idx) => {
@@ -153,6 +153,42 @@ export function generateRepositoryIntelligencePdf({
     })
 
     doc.y += cardHeight + 16
+
+    // --- AI Executive Summary: what to change, or confirmation nothing is needed ---
+    checkAddPage(96)
+    const allClear = aiSummary.status === 'ALL_UP_TO_DATE'
+    const summaryBoxY = doc.y
+    doc.roundedRect(leftMargin, summaryBoxY, pageWidth, 42, 4).fill(allClear ? '#ecfdf5' : '#f5f3ff')
+    doc.rect(leftMargin, summaryBoxY, 3, 42).fill(allClear ? '#059669' : '#7c3aed')
+
+    doc.fillColor(allClear ? '#047857' : '#6d28d9').fontSize(8.5).font('Helvetica-Bold')
+      .text('AI EXECUTIVE SUMMARY', leftMargin + 12, summaryBoxY + 7)
+    doc.fillColor(allClear ? '#065f46' : '#4c1d95').fontSize(8).font('Helvetica-Bold')
+      .text(truncate(aiSummary.headline, 150), leftMargin + 12, summaryBoxY + 18, { width: pageWidth - 24 })
+    doc.fillColor('#334155').fontSize(7.2).font('Helvetica')
+      .text(truncate(aiSummary.summary, 240), leftMargin + 12, summaryBoxY + 29, { width: pageWidth - 24 })
+
+    doc.y = summaryBoxY + 48
+
+    if (aiSummary.actions?.length) {
+      doc.fillColor('#6d28d9').fontSize(7.5).font('Helvetica-Bold')
+        .text('PRIORITY ACTIONS', leftMargin, doc.y)
+      doc.y += 11
+      for (const action of aiSummary.actions.slice(0, 5)) {
+        checkAddPage(14)
+        doc.fillColor('#0f172a').fontSize(7.2).font('Helvetica')
+          .text(`• ${action.package}: ${truncate(action.action, 140)}`, leftMargin + 4, doc.y, { width: pageWidth - 8 })
+        doc.y += 11
+      }
+      doc.y += 4
+    }
+
+    if (aiSummary.closingNote) {
+      checkAddPage(20)
+      doc.fillColor('#64748b').fontSize(7).font('Helvetica-Oblique')
+        .text(truncate(aiSummary.closingNote, 220), leftMargin, doc.y, { width: pageWidth })
+      doc.y += 15
+    }
 
     // --- 3. Section 1: Dependencies Needing Upgrade ---
     if (needsUpgrade.length > 0) {
@@ -226,7 +262,7 @@ export function generateRepositoryIntelligencePdf({
       doc.y += 28
 
       doc.fillColor('#64748b').fontSize(8).font('Helvetica')
-        .text('These packages are behind by one or more major versions. Major version leaps frequently include breaking API changes and architectural updates. Review official Firecrawl research findings before upgrading.', leftMargin, doc.y, { width: pageWidth })
+        .text('These packages are behind by one or more major versions. Major version leaps frequently include breaking API changes and architectural updates. Review the official release notes and migration guide before upgrading.', leftMargin, doc.y, { width: pageWidth })
       doc.y += 14
 
       for (const item of outdated) {
@@ -247,10 +283,8 @@ export function generateRepositoryIntelligencePdf({
         doc.fillColor('#e11d48').fontSize(8.5).font('Helvetica-Bold')
           .text(`${installed}  ->  ${target}  [MAJOR SHIFT]`, leftMargin + 180, itemBoxY + 9)
 
-        // Firecrawl Research Status Badge
-        const hasResearch = Boolean(research.packageInfo || research.breakingChanges?.length || research.findings?.length)
-        doc.fillColor(hasResearch ? '#0284c7' : '#64748b').fontSize(7.5).font('Helvetica-Bold')
-          .text(hasResearch ? 'Firecrawl Docs Researched' : 'Registry Verified', leftMargin + 370, itemBoxY + 9, { align: 'right', width: pageWidth - 380 })
+        doc.fillColor('#64748b').fontSize(7.5).font('Helvetica-Bold')
+          .text('Registry verified', leftMargin + 370, itemBoxY + 9, { align: 'right', width: pageWidth - 380 })
 
         // Breaking Changes Summary from Firecrawl
         let breakingText = 'None documented in release notes'
@@ -355,7 +389,7 @@ export function generateRepositoryIntelligencePdf({
         .stroke()
 
       doc.fillColor('#94a3b8').fontSize(7.5).font('Helvetica')
-        .text('Generated by DevUpdate AI  •  Powered by Firecrawl & AI Intelligence Engine', leftMargin, doc.page.height - 26, {
+        .text('Generated by DevUpdate AI  •  Powered by the AI Intelligence Engine', leftMargin, doc.page.height - 26, {
           width: pageWidth - 100,
         })
 

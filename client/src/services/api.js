@@ -1,6 +1,23 @@
 import axios from 'axios'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+const configuredApiUrl = (import.meta.env.VITE_API_URL || '/api').trim()
+
+function isLocalApiUrl(value) {
+  try {
+    const { hostname, port } = new URL(value, window.location.origin)
+    return ['localhost', '127.0.0.1'].includes(hostname) && ['5000', ''].includes(port)
+  } catch {
+    return false
+  }
+}
+
+// In development, keep API calls on the same origin as the Vite app. The dev
+// server proxies /api to the backend, which avoids CORS/SameSite cookie failures
+// when the UI is opened via 127.0.0.1 or a LAN hostname instead of localhost.
+const API_URL =
+  import.meta.env.DEV && typeof window !== 'undefined' && isLocalApiUrl(configuredApiUrl)
+    ? '/api'
+    : configuredApiUrl.replace(/\/$/, '') || '/api'
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -62,9 +79,16 @@ api.interceptors.response.use(
 
 export function getErrorMessage(error, fallback = 'Something went wrong. Please try again.') {
   if (error?.response?.data?.message) return error.response.data.message
-  if (error?.code === 'ERR_NETWORK') {
-    return 'Cannot reach the server. Make sure the backend is running.'
+  if (error?.code === 'ERR_NETWORK' || error?.message === 'Network Error') {
+    const endpoint = error?.config?.url || ''
+    return endpoint
+      ? `Cannot reach the API (${endpoint}). Check that the backend is running and reachable.`
+      : 'Cannot reach the server. Make sure the backend is running.'
   }
+  if (error?.response?.status) {
+    return `The server returned ${error.response.status}. Please try again.`
+  }
+  if (error?.message && !error.message.startsWith('Request failed')) return error.message
   return fallback
 }
 
@@ -123,6 +147,7 @@ export const updatesApi = {
   overview: () => api.get('/updates/overview').then((res) => res.data),
   repositories: (params) => api.get('/updates/repositories', { params }).then((res) => res.data),
   list: (params) => api.get('/updates/list', { params }).then((res) => res.data),
+  universal: () => api.get('/updates/universal').then((res) => res.data),
   repository: (repositoryId, params) =>
     api.get(`/updates/repository/${repositoryId}`, { params }).then((res) => res.data),
   dependency: (dependencyId) =>

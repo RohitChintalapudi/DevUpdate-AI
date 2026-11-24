@@ -106,7 +106,7 @@ export const researchStatusLabel = {
   QUEUED: 'Queued',
   RESEARCHING: 'Researching…',
   COMPLETED: 'Completed',
-  PARTIAL: 'Partial',
+  PARTIAL: 'Limited / No Source',
   FAILED: 'Failed',
 }
 

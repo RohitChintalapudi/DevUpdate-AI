@@ -88,6 +88,70 @@ export function UpdateActivityChart({ data = [] }) {
   )
 }
 
+const languageColors = ['#6366F1', '#0284C7', '#10B981', '#F59E0B', '#EF4444', '#A855F7', '#14B8A6', '#64748B']
+
+export function LanguageChart({ items = [] }) {
+  const data = items.filter((item) => item.count > 0)
+  const total = data.reduce((sum, item) => sum + item.count, 0)
+
+  if (!data.length) {
+    return (
+      <div className="flex h-[260px] flex-col items-center justify-center text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full border border-dashed border-slate-300 bg-slate-50">
+          <span className="text-xl font-bold text-slate-400">0</span>
+        </div>
+        <p className="mt-4 text-xs font-semibold text-slate-700">No repository languages yet</p>
+        <p className="mt-1 max-w-xs text-[11px] leading-relaxed text-slate-500">
+          Connect GitHub repositories to see their primary language mix.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="h-[200px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="count"
+              nameKey="name"
+              cx="50%"
+              cy="50%"
+              innerRadius={58}
+              outerRadius={82}
+              paddingAngle={4}
+              stroke="none"
+            >
+              {data.map((item, index) => (
+                <Cell key={item.name} fill={languageColors[index % languageColors.length]} />
+              ))}
+            </Pie>
+            <Tooltip content={<ChartTooltip />} />
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="pointer-events-none -mt-[132px] flex h-[84px] flex-col items-center justify-center">
+          <span className="text-2xl font-bold tracking-tight text-slate-950">{total}</span>
+          <span className="text-[10px] text-slate-400">repositories</span>
+        </div>
+      </div>
+      <div className="mt-3 grid w-full grid-cols-2 gap-x-4 gap-y-2">
+        {data.map((item, index) => (
+          <div key={item.name} className="flex items-center gap-2 text-[11px] text-slate-600">
+            <span
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{ backgroundColor: languageColors[index % languageColors.length] }}
+            />
+            <span className="truncate">{item.name}</span>
+            <span className="ml-auto font-semibold text-slate-900">{item.count}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 const statusPalette = {
   UP_TO_DATE: { name: 'Up to date', color: '#10B981' },
   MINOR_UPDATE: { name: 'Minor update', color: '#0284C7' },

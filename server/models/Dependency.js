@@ -24,6 +24,14 @@ const dependencySchema = new Schema(
       enum: ['exact', 'range', 'wildcard', 'unknown'],
       default: 'unknown',
     },
+    dependencyKey: { type: String, default: '', index: true },
+    popularityKey: { type: String, default: '' },
+    popularityScore: { type: Number, default: 0 },
+    popularityDownloads: { type: Number, default: 0 },
+    popularitySource: { type: String, default: 'heuristic' },
+    popularityRank: { type: Number, default: 0 },
+    popularityEvaluatedAt: { type: Date, default: null },
+    isPopular: { type: Boolean, default: true, index: true },
     extractedAt: { type: Date, default: Date.now },
   },
   { timestamps: true },
@@ -45,6 +53,7 @@ dependencySchema.index(
 dependencySchema.index({ userId: 1, ecosystem: 1 })
 dependencySchema.index({ userId: 1, packageName: 1 })
 dependencySchema.index({ repositoryId: 1, extractedAt: -1 })
+dependencySchema.index({ userId: 1, repositoryId: 1, dependencyKey: 1 })
 
 dependencySchema.methods.toJSON = function toJSON() {
   const obj = this.toObject()

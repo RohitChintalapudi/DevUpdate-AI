@@ -11,6 +11,7 @@ import {
   LuFlame,
   LuGitBranch,
   LuGitPullRequest,
+  LuInfo,
   LuLayers,
   LuPackage,
   LuRefreshCw,
@@ -480,6 +481,32 @@ export default function DependencyResearchDrawer({
                           </p>
                         </div>
 
+                        {/* Skip / fallback notes when no official source was found */}
+                        {research.limitations?.length > 0 && (
+                          <div className="rounded-2xl border border-amber-200/80 bg-amber-50/50 p-4">
+                            <div className="flex items-center gap-2 text-amber-900">
+                              <LuInfo className="h-4 w-4 shrink-0 text-amber-600" />
+                              <h3 className="text-xs font-bold uppercase tracking-wider">
+                                {research.researchStatus === 'PARTIAL'
+                                  ? 'No Verified Web Source — Dependency Skipped'
+                                  : 'Research Notes'}
+                              </h3>
+                            </div>
+                            <ul className="mt-2 space-y-1 text-xs leading-relaxed text-amber-900/85">
+                              {research.limitations.map((note, idx) => (
+                                <li key={idx} className="flex gap-1.5">
+                                  <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-amber-500" />
+                                  {note}
+                                </li>
+                              ))}
+                            </ul>
+                            <p className="mt-2 text-[11px] leading-relaxed text-amber-800/70">
+                              Registry version data is still shown above. AI was asked to suggest an official
+                              website or upgrade page, and any suggestion was safety-checked and fetched before use.
+                            </p>
+                          </div>
+                        )}
+
                         {/* Discovered Breaking Changes */}
                         {research.breakingChanges && research.breakingChanges.length > 0 && (
                           <div className="rounded-2xl border border-amber-200/90 bg-amber-50/40 p-5">
@@ -573,7 +600,9 @@ export default function DependencyResearchDrawer({
                             </div>
                           ) : (
                             <p className="text-xs text-slate-500 rounded-xl border border-dashed border-slate-200 p-6 text-center">
-                              No explicit changelog findings parsed. Try re-researching.
+                              {research.researchStatus === 'PARTIAL'
+                                ? 'No usable changelog page was found for this dependency. It was skipped instead of blocking the research run.'
+                                : 'No explicit changelog findings parsed. Try re-researching.'}
                             </p>
                           )}
                         </div>

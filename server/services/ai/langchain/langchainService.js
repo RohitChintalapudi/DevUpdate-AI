@@ -11,9 +11,19 @@ const promptTemplate = ChatPromptTemplate.fromMessages([
   ['human', '{prompt}'],
 ])
 
-/** Formats prompts through LangChain so every model call uses one message contract. */
+/**
+ * Formats prompts through LangChain so every model call uses one message
+ * contract, then converts the message classes into plain { role, content }
+ * objects that the Groq SDK expects.
+ */
 export async function buildModelMessages(prompt) {
-  return promptTemplate.formatMessages({ prompt: String(prompt || '') })
+  const messages = await promptTemplate.formatMessages({ prompt: String(prompt || '') })
+  return messages.map((message) => {
+    const kind = typeof message._getType === 'function' ? message._getType() : message.role
+    const role = kind === 'human' ? 'user' : kind === 'ai' ? 'assistant' : kind || 'user'
+    const content = typeof message.content === 'string' ? message.content : JSON.stringify(message.content ?? '')
+    return { role, content }
+  })
 }
 
 export async function langchainStructuredGenerate(options) {

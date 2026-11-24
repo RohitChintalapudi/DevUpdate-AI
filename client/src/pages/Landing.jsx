@@ -8,7 +8,6 @@ import WorkspaceBanner from '../components/landing/WorkspaceBanner'
 import Features from '../components/landing/Features'
 import HowItWorks from '../components/landing/HowItWorks'
 import SplitWorkflow from '../components/landing/SplitWorkflow'
-import AiIntelligenceSection from '../components/landing/AiIntelligenceSection'
 import FeatureTiles from '../components/landing/FeatureTiles'
 import TechnologySection from '../components/landing/TechnologySection'
 import SupportedEcosystems from '../components/landing/SupportedEcosystems'
@@ -65,9 +64,6 @@ export default function Landing() {
 
         {/* Visual Workflow Split: Manage updates faster with your team */}
         <SplitWorkflow />
-
-        {/* 7. AI Intelligence Section (Beyond Version Numbers + React 18.3.1 -> 19.1.0 Example) */}
-        <AiIntelligenceSection />
 
         {/* Visual Integration Tiles: Plan upgrades and track dependencies effortlessly */}
         <FeatureTiles />

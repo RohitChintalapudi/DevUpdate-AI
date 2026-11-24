@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import { Octokit } from 'octokit'
 import { AppError } from '../utils/errors.js'
 import { sanitizeText, mapLimit, withTimeout } from '../utils/sanitize.js'
@@ -7,6 +8,7 @@ import {
   MAX_TREE_DEPTH,
   MAX_TREE_ENTRIES,
   GITHUB_REQUEST_TIMEOUT_MS,
+  GRAPHQL_BATCH_SIZE,
 } from '../constants/manifests.js'
 
 function config() {
@@ -41,6 +43,9 @@ export function getOAuthAuthorizeUrl(state) {
     scope: scopes,
     state,
     allow_signup: 'true',
+    // Force GitHub's authorization screen so every connect/reconnect issues a
+    // fresh grant with the current scopes instead of silently reusing an old one.
+    prompt: 'consent',
   })
   return `https://github.com/login/oauth/authorize?${params.toString()}`
 }
@@ -180,6 +185,34 @@ export async function getAuthenticatedUser(accessToken) {
     translateGithubError(error)
     throw error
   }
+}
+
+// Token validation is cached briefly so repeated status checks do not hammer
+// GitHub. An expired/revoked token disconnects the user; temporary outages do not.
+const tokenValidationCache = new Map()
+const TOKEN_VALIDATION_TTL_MS = 60_000
+
+export async function validateGithubToken(accessToken) {
+  if (typeof accessToken !== 'string' || !accessToken) return { valid: false, reason: 'NO_TOKEN' }
+  const key = crypto.createHash('sha256').update(accessToken).digest('hex')
+  const cached = tokenValidationCache.get(key)
+  if (cached && Date.now() - cached.at < TOKEN_VALIDATION_TTL_MS) return cached.result
+
+  let result
+  try {
+    await getAuthenticatedUser(accessToken)
+    result = { valid: true }
+  } catch (error) {
+    result = {
+      valid: false,
+      reason: error?.statusCode === 401 || error?.status === 401 ? 'EXPIRED' : 'UNAVAILABLE',
+      message: sanitizeText(error?.message || 'GitHub token validation failed.', 200),
+    }
+  }
+
+  if (tokenValidationCache.size > 500) tokenValidationCache.clear()
+  tokenValidationCache.set(key, { result, at: Date.now() })
+  return result
 }
 
 function normalizeRepository(repo) {
@@ -373,4 +406,61 @@ export async function getFileContent(accessToken, owner, repo, path, ref) {
     translateGithubError(error)
     throw error
   }
+}
+
+/**
+ * Fetch many manifest files in a handful of GraphQL requests instead of one
+ * REST request per file. Each file is an aliased `object(expression: "<ref>:<path>")`
+ * lookup. Files GitHub cannot return as text are simply omitted so the caller
+ * can fall back to the REST content API for those paths.
+ */
+export async function fetchFilesContentGraphql(accessToken, owner, repo, files, ref) {
+  const contents = new Map()
+  if (!Array.isArray(files) || !files.length) return contents
+  const safeRef = String(ref || 'HEAD').replace(/[\r\n]/g, '')
+
+  for (let offset = 0; offset < files.length; offset += GRAPHQL_BATCH_SIZE) {
+    const batch = files.slice(offset, offset + GRAPHQL_BATCH_SIZE)
+    const fields = batch
+      .map((file, index) => {
+        const expression = JSON.stringify(`${safeRef}:${file.path}`)
+        return `f${index}: object(expression: ${expression}) { ... on Blob { text } }`
+      })
+      .join('\n')
+    const query = `query($owner: String!, $name: String!) {
+      repository(owner: $owner, name: $name) {
+        ${fields}
+      }
+    }`
+
+    let payload
+    try {
+      const response = await withTimeout(
+        fetch('https://api.github.com/graphql', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'User-Agent': 'DevUpdate-AI-App',
+          },
+          body: JSON.stringify({ query, variables: { owner, name: repo } }),
+        }),
+        GITHUB_REQUEST_TIMEOUT_MS,
+        'Timed out batching manifest reads from GitHub',
+      )
+      payload = await response.json()
+    } catch {
+      // Return whatever was fetched so far; scanService falls back per file.
+      return contents
+    }
+
+    const repository = payload?.data?.repository
+    if (!repository) return contents
+    batch.forEach((file, index) => {
+      const text = repository[`f${index}`]?.text
+      if (typeof text === 'string') contents.set(file.path, text)
+    })
+  }
+
+  return contents
 }

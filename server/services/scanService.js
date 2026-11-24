@@ -22,13 +22,35 @@ import {
   getRepositoryMetadata,
   getRepositoryTree,
   getFileContent,
+  fetchFilesContentGraphql,
 } from './githubService.js'
 import { parseDependencyFiles } from './dependencyParserService.js'
 import { notifyScanFailed } from './notifications/notificationService.js'
+import { rankDependencies } from './updateIntelligence/popularity/dependencyPopularityService.js'
+import { applyPopularSelection } from './updateIntelligence/popularity/popularDependencyReconciler.js'
+import { archiveDiscoveredDependencies } from './updateIntelligence/popularity/discoveredDependencyArchive.js'
 
 const STALE_SCAN_MS = 20 * 60 * 1000
 export const SCAN_TIMEOUT_MS = 110_000 // Guarantee scan completes under 120s
 const activeJobs = new Set()
+
+// Small bounded cache so repeated scans of the same ref do not re-download
+// identical manifest blobs from GitHub.
+const manifestTextCache = new Map()
+const MANIFEST_CACHE_MAX = 200
+
+function manifestCacheKey(owner, repo, ref, file) {
+  return `${owner}/${repo}@${ref}:${file.path}:${file.sha || ''}`
+}
+
+function rememberManifestText(key, content) {
+  if (!key || typeof content !== 'string' || !content) return
+  if (manifestTextCache.size >= MANIFEST_CACHE_MAX) {
+    const oldest = manifestTextCache.keys().next().value
+    if (oldest) manifestTextCache.delete(oldest)
+  }
+  manifestTextCache.set(key, content)
+}
 
 function validateBranch(branch) {
   if (!branch) return ''
@@ -37,17 +59,6 @@ function validateBranch(branch) {
     throw new AppError('Invalid branch name.', 400)
   }
   return value
-}
-
-function dependencySignature(dependency) {
-  return [
-    dependency.ecosystem,
-    dependency.packageName,
-    dependency.dependencyType,
-    dependency.sourceManifest,
-    dependency.declaredVersion,
-    dependency.resolvedVersion,
-  ].join('::')
 }
 
 async function ownedRepository(userId, repositoryId) {
@@ -170,66 +181,22 @@ async function persistDependencies({ userId, repositoryId, dependencies }) {
     DependencyUpdate.deleteMany({ userId, repositoryId, packageName: /^@/ }),
   ])
 
-  const cleanDependencies = (dependencies || []).filter((d) => d.packageName && !d.packageName.startsWith('@'))
-  const signatures = new Set(cleanDependencies.map(dependencySignature))
-  const existing = await Dependency.find({ userId, repositoryId }).select('_id').lean()
-  const staleIds = []
-  for (const record of existing) {
-    const signature = [
-      record.ecosystem || '',
-      record.packageName || '',
-      record.dependencyType || '',
-      record.sourceManifest || '',
-      record.declaredVersion || '',
-      record.resolvedVersion || '',
-    ].join('::')
-    if (!signatures.has(signature)) staleIds.push(record._id)
-  }
-  if (staleIds.length) await Dependency.deleteMany({ _id: { $in: staleIds }, userId, repositoryId })
-
-  const unique = new Map()
-  for (const dependency of cleanDependencies) unique.set(dependencySignature(dependency), dependency)
-  if (!unique.size) return 0
-
-  await Dependency.bulkWrite(
-    [...unique.values()].map((dependency) => ({
-      updateOne: {
-        filter: {
-          userId,
-          repositoryId,
-          ecosystem: dependency.ecosystem,
-          packageName: dependency.packageName,
-          dependencyType: dependency.dependencyType,
-          sourceManifest: dependency.sourceManifest,
-          declaredVersion: dependency.declaredVersion,
-          resolvedVersion: dependency.resolvedVersion,
-        },
-        update: {
-          $set: {
-            groupId: dependency.groupId || '',
-            artifactId: dependency.artifactId || '',
-            isDevelopmentDependency: dependency.isDevelopmentDependency,
-            versionType: dependency.versionType,
-            extractedAt: new Date(dependency.extractedAt || Date.now()),
-          },
-          $setOnInsert: {
-            userId,
-            repositoryId,
-            ecosystem: dependency.ecosystem,
-            packageName: dependency.packageName,
-            dependencyType: dependency.dependencyType,
-            sourceManifest: dependency.sourceManifest,
-            declaredVersion: dependency.declaredVersion,
-            resolvedVersion: dependency.resolvedVersion,
-          },
-        },
-        upsert: true,
-      },
-    })),
-    { ordered: false },
+  const cleanDependencies = (dependencies || []).filter(
+    (dependency) => dependency.packageName && !dependency.packageName.startsWith('@'),
   )
-
-  return unique.size
+  const { selected, candidates, stats } = await rankDependencies(cleanDependencies)
+  try {
+    await archiveDiscoveredDependencies({ userId, repositoryId, dependencies: candidates })
+  } catch (error) {
+    console.warn('[scan] Could not archive discovered dependencies:', sanitizeError(error))
+  }
+  const result = await applyPopularSelection({
+    userId,
+    repositoryId,
+    selected,
+    stats,
+  })
+  return { count: result.kept, stats: result.stats }
 }
 
 export async function runScan(jobId) {
@@ -284,16 +251,45 @@ export async function runScan(jobId) {
           message: `Discovered ${tree.files.length} files and ${manifests.length} manifest files.`,
         })
 
+        // One GraphQL request reads up to GRAPHQL_BATCH_SIZE manifests. Only
+        // files GraphQL cannot return as text fall back to the REST content API.
+        const batchContents = await fetchFilesContentGraphql(
+          accessToken,
+          repository.owner,
+          repository.name,
+          manifests,
+          ref,
+        )
+
         let processed = 0
+        let lastProgressAt = 0
+        const reportProgress = async (force = false) => {
+          const now = Date.now()
+          if (!force && now - lastProgressAt < 300) return
+          lastProgressAt = now
+          await updateProgress(jobId, {
+            filesDiscovered: tree.files.length,
+            manifestsProcessed: processed,
+            dependenciesExtracted: 0,
+            message: `Processed ${processed} of ${manifests.length} manifest files.`,
+          })
+        }
+
         const contents = await mapLimit(manifests, MAX_CONCURRENT_REQUESTS, async (manifest) => {
           try {
-            const content = await getFileContent(
-              accessToken,
-              repository.owner,
-              repository.name,
-              manifest.path,
-              ref,
-            )
+            const cacheKey = manifestCacheKey(repository.owner, repository.name, ref, manifest)
+            let content = batchContents.get(manifest.path)
+            if (typeof content !== 'string') content = manifestTextCache.get(cacheKey)
+            if (typeof content !== 'string') {
+              content = await getFileContent(
+                accessToken,
+                repository.owner,
+                repository.name,
+                manifest.path,
+                ref,
+              )
+            }
+            rememberManifestText(cacheKey, content)
             return {
               path: manifest.path,
               parser: manifest.matcher.parser,
@@ -302,17 +298,12 @@ export async function runScan(jobId) {
             }
           } finally {
             processed += 1
-            await updateProgress(jobId, {
-              filesDiscovered: tree.files.length,
-              manifestsProcessed: processed,
-              dependenciesExtracted: 0,
-              message: `Processed ${processed} of ${manifests.length} manifest files.`,
-            })
+            await reportProgress(processed === manifests.length)
           }
         })
 
         const dependencies = parseDependencyFiles(contents.filter((file) => file.content))
-        const count = await persistDependencies({
+        const { count, stats } = await persistDependencies({
           userId: job.userId,
           repositoryId: repository._id,
           dependencies,
@@ -329,7 +320,8 @@ export async function runScan(jobId) {
                 filesDiscovered: tree.files.length,
                 manifestsProcessed: manifests.length,
                 dependenciesExtracted: count,
-                message: `Extracted ${count} dependencies from ${manifests.length} manifests.`,
+                dependenciesDiscovered: stats.discovered,
+                message: `Keeping ${count} popular dependencies from ${stats.discovered} discovered across ${manifests.length} manifests${stats.selectionSource === 'ai' ? ' (AI-selected)' : ''}.`,
               },
             },
           },
@@ -344,6 +336,7 @@ export async function runScan(jobId) {
               lastScannedAt: completedAt,
               lastScanError: '',
               dependencyCount: count,
+              discoveredDependencyCount: stats.discovered,
               manifestFiles: manifests.map((manifest) => manifest.path),
             },
           },

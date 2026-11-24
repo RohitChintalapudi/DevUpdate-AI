@@ -13,13 +13,17 @@ export default function GitHubConnect({
   phase = 'idle',
   error = '',
   checking = false,
+  syncing = false,
+  slowWait = false,
   onConnect,
   onDisconnect,
   onSync,
 }) {
   const connected = status?.connected && phase !== 'connecting'
-  const busy = phase === 'connecting' || phase === 'reconnecting' || checking
-  const failed = !checking && (phase === 'failed' || status?.status === 'FAILED' || status?.status === 'EXPIRED')
+  const verifying = checking || syncing
+  const busy = phase === 'connecting' || phase === 'reconnecting' || verifying
+  const failed = !verifying && (phase === 'failed' || status?.status === 'FAILED' || status?.status === 'EXPIRED')
+  const expired = !verifying && status?.status === 'EXPIRED'
 
   return (
     <motion.div
@@ -36,10 +40,12 @@ export default function GitHubConnect({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-base font-bold text-slate-950">GitHub connection</h2>
-              {checking ? (
-                <Badge tone="cyan" dot>Verifying connection…</Badge>
+              {verifying ? (
+                <Badge tone="cyan" dot>{syncing ? 'Syncing repositories…' : 'Verifying connection…'}</Badge>
               ) : connected ? (
                 <Badge tone="success" dot>Connected</Badge>
+              ) : expired ? (
+                <Badge tone="danger" dot>Authorization expired</Badge>
               ) : failed ? (
                 <Badge tone="danger" dot>Connection failed</Badge>
               ) : (
@@ -47,11 +53,20 @@ export default function GitHubConnect({
               )}
             </div>
 
-            {checking ? (
-              <p className="mt-2 max-w-xl text-sm leading-relaxed text-slate-500 flex items-center gap-2">
-                <LuRefreshCw className="h-3.5 w-3.5 animate-spin text-sky-600" />
-                Establishing GitHub connection and checking accessible repositories…
-              </p>
+            {verifying ? (
+              <div className="mt-2 max-w-xl">
+                <p className="flex items-center gap-2 text-sm leading-relaxed text-slate-500">
+                  <LuRefreshCw className="h-3.5 w-3.5 animate-spin text-sky-600" />
+                  {syncing
+                    ? 'Syncing your accessible repositories in the background…'
+                    : 'Establishing GitHub connection and checking accessible repositories…'}
+                </p>
+                {slowWait ? (
+                  <p className="mt-1.5 text-[11px] font-medium text-amber-600">
+                    Still working… GitHub can be slow sometimes. Please keep this page open.
+                  </p>
+                ) : null}
+              </div>
             ) : connected ? (
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 {status.profile?.avatarUrl ? (
@@ -69,14 +84,18 @@ export default function GitHubConnect({
                   {status.repositoryCount || 0} accessible repositories
                 </span>
               </div>
+            ) : expired ? (
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-subtle">
+                Your GitHub authorization expired. Reconnect to restore repository syncing.
+              </p>
             ) : (
               <p className="mt-2 max-w-xl text-sm leading-relaxed text-subtle">
                 Connect your GitHub account to discover your project dependencies.
               </p>
             )}
 
-            {!checking && (busy || failed || error) && (
-              <p className={`mt-3 flex items-center gap-2 text-xs ${failed || error ? 'text-danger' : 'text-accent'}`}>
+            {!verifying && (busy || failed || error) && (
+              <p className={`mt-3 flex items-center gap-2 text-xs ${failed ? 'text-danger' : 'text-accent'}`}>
                 {failed || error ? <LuTriangleAlert className="h-3.5 w-3.5" /> : <LuRefreshCw className="h-3.5 w-3.5 animate-spin" />}
                 {error || phaseCopy[phase] || 'Connection failed. Please try again.'}
               </p>
@@ -92,9 +111,9 @@ export default function GitHubConnect({
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2.5">
-          {checking ? (
+          {verifying ? (
             <Button size="sm" leftIcon={LuRefreshCw} loading disabled>
-              Establishing connection…
+              {syncing ? 'Syncing…' : 'Verifying…'}
             </Button>
           ) : connected ? (
             <>

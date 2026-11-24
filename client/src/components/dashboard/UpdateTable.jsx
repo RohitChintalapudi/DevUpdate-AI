@@ -9,8 +9,6 @@ import {
   formatDate,
   formatVersion,
   getCanonicalUpdateStatus,
-  researchStatusLabel,
-  researchStatusTone,
   securityStatusLabel,
   securityStatusTone,
   updateStatusLabel,
@@ -56,7 +54,6 @@ export default function UpdateTable({
               <th className="px-4 py-3.5">Update Status</th>
               <th className="px-4 py-3.5">Update Type</th>
               <th className="px-4 py-3.5">Security</th>
-              <th className="px-4 py-3.5">Research</th>
               <th className="px-5 py-3.5 text-right">Actions</th>
             </tr>
           </thead>
@@ -153,14 +150,7 @@ export default function UpdateTable({
                     </Badge>
                   </td>
 
-                  {/* 9. Research Status */}
-                  <td className="px-4 py-4">
-                    <Badge tone={researchStatusTone[researchStatus] || 'neutral'} dot>
-                      {researchStatusLabel[researchStatus] || researchStatus}
-                    </Badge>
-                  </td>
-
-                  {/* 10. Actions */}
+                  {/* 9. Actions */}
                   <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
                       {onQuickResearch && researchStatus === 'NOT_RESEARCHED' ? (

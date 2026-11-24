@@ -6,6 +6,14 @@ import AIAnalysis from '../../../models/AIAnalysis.js'
 import Repository from '../../../models/Repository.js'
 import { researchPackageUpdate } from '../../ai/research/firecrawlResearchService.js'
 import { langchainStructuredGenerate } from '../../ai/langchain/langchainService.js'
+import { researchKnowledgeFallbackSchema } from '../../ai/schemas/aiSchemas.js'
+import { buildResearchKnowledgeFallbackPrompt } from '../../ai/prompts/aiPrompts.js'
+import { deduplicateRepositoryUpdates } from '../updateEngine/deduplicateUpdates.js'
+import {
+  dependencyKeyFor,
+  dependencyResearchMatch,
+  dependencyUpdateMatch,
+} from '../updateEngine/dependencyIdentity.js'
 import { isValidObjectId, sanitizeError, sanitizeText } from '../../../utils/sanitize.js'
 import { z } from 'zod'
 
@@ -28,6 +36,144 @@ const activeResearchJobs = new Map()
 export function getRepositoryResearchStatus(repositoryId) {
   const id = String(repositoryId)
   return activeResearchJobs.get(id) || null
+}
+
+function boundedMs(value, fallback, min, max) {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback
+  return Math.min(max, Math.max(min, Math.round(parsed)))
+}
+
+// Firecrawl gets ~9s and the AI knowledge fallback ~4s. The 15s wrapper is a
+// final guard so one dependency can never stall a research worker.
+const FIRECRAWL_PACKAGE_TIMEOUT_MS = boundedMs(
+  process.env.AI_FIRECRAWL_PACKAGE_TIMEOUT_MS || process.env.AI_RESEARCH_DEADLINE_MS,
+  9_000,
+  2_000,
+  15_000,
+)
+const AI_FALLBACK_TIMEOUT_MS = boundedMs(process.env.AI_RESEARCH_FALLBACK_TIMEOUT_MS, 4_000, 500, 6_000)
+const DEPENDENCY_RESEARCH_TIMEOUT_MS = boundedMs(
+  process.env.AI_DEPENDENCY_RESEARCH_TIMEOUT_MS,
+  15_000,
+  5_000,
+  20_000,
+)
+const STALE_RESEARCH_AFTER_MS = 15 * 60 * 1000
+
+/** Settle research records left behind by a server restart or worker crash. */
+export async function recoverStaleResearchJobs() {
+  const cutoff = new Date(Date.now() - STALE_RESEARCH_AFTER_MS)
+  const limitation = 'Research was interrupted before completion; this dependency was skipped.'
+  const [updates, documents] = await Promise.all([
+    DependencyUpdate.updateMany(
+      { researchStatus: { $in: ['QUEUED', 'RESEARCHING'] }, updatedAt: { $lt: cutoff } },
+      { $set: { researchStatus: 'PARTIAL', registryError: '' } },
+    ),
+    DependencyResearch.updateMany(
+      { researchStatus: { $in: ['QUEUED', 'RESEARCHING'] }, updatedAt: { $lt: cutoff } },
+      {
+        $set: {
+          researchStatus: 'PARTIAL',
+          confidence: 0.2,
+          limitations: [limitation],
+          error: '',
+          researchedAt: new Date(),
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      },
+    ),
+  ])
+  return { updates: updates.modifiedCount || 0, documents: documents.modifiedCount || 0 }
+}
+
+function withTimeout(promise, ms, fallback) {
+  let timeoutId
+  const timeout = new Promise((resolve) => {
+    timeoutId = setTimeout(() => resolve(fallback), ms)
+  })
+  return Promise.race([Promise.resolve(promise), timeout]).finally(() => clearTimeout(timeoutId))
+}
+
+/** Settle a dependency that exceeded its time budget so the job keeps moving. */
+async function markResearchSkipped({
+  userId,
+  repositoryId,
+  dependencyId,
+  dependencyKey,
+  packageName,
+  ecosystem,
+  reason,
+}) {
+  const limitation = reason
+    ? `${reason} Marked Limited / No Source.`
+    : 'Research timed out; marked Limited / No Source so the job could continue.'
+  const userObjId = toObjectId(userId)
+  const repoObjId = toObjectId(repositoryId)
+  const depObjId = toObjectId(dependencyId)
+
+  await DependencyUpdate.updateOne(
+    dependencyUpdateMatch({ userId: userObjId, repositoryId: repoObjId, _id: depObjId, dependencyKey }),
+    { $set: { researchStatus: 'PARTIAL', registryError: limitation } },
+  ).catch(() => null)
+
+  const existing = await DependencyResearch.findOne(
+    dependencyResearchMatch({ userId: userObjId, repositoryId: repoObjId, _id: depObjId, dependencyKey }),
+  ).lean().catch(() => null)
+
+  if (existing) {
+    await DependencyResearch.updateOne(
+      { _id: existing._id },
+      {
+        $set: {
+          researchStatus: 'PARTIAL',
+          packageName: packageName || existing.packageName || '',
+          ecosystem: ecosystem || existing.ecosystem || '',
+          confidence: 0.2,
+          limitations: [limitation],
+          error: '',
+          researchedAt: new Date(),
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      },
+    ).catch(() => null)
+    return
+  }
+
+  await DependencyResearch.create({
+    userId: userObjId,
+    repositoryId: repoObjId,
+    dependencyId: depObjId,
+    dependencyKey: dependencyKey || '',
+    packageName: packageName || '',
+    ecosystem: ecosystem || '',
+    researchStatus: 'PARTIAL',
+    confidence: 0.2,
+    limitations: [limitation],
+    error: '',
+    researchedAt: new Date(),
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+  }).catch(() => null)
+}
+
+/**
+ * Last-resort AI summary. It uses registry metadata from the version-check
+ * step plus model knowledge, and is always stored as unverified/partial.
+ */
+async function researchKnowledgeFallback({ update, reason }) {
+  const result = await withTimeout(
+    langchainStructuredGenerate({
+      schema: researchKnowledgeFallbackSchema,
+      name: 'research_knowledge_fallback',
+      prompt: buildResearchKnowledgeFallbackPrompt({ update, reason }),
+      maxTokens: 700,
+      retries: 0,
+    }),
+    AI_FALLBACK_TIMEOUT_MS,
+    null,
+  ).catch(() => null)
+
+  return result?.data || null
 }
 
 const aiInterpretationSchema = z.object({
@@ -98,11 +244,13 @@ export async function researchSingleDependency({ userId, repositoryId, dependenc
     Repository.findOne({ _id: repoMatch, userId: userMatch }).lean(),
   ])
 
-  let update = await DependencyUpdate.findOne({
-    $or: [{ dependencyId: depMatch }, { _id: depMatch }],
-    userId: userMatch,
-    repositoryId: repoMatch,
-  })
+  let update = await DependencyUpdate.findOne(
+    dependencyUpdateMatch({
+      userId: userObjId,
+      repositoryId: repoObjId,
+      _id: depObjId,
+    }),
+  )
 
   if (!dependency && update) {
     dependency = {
@@ -124,15 +272,19 @@ export async function researchSingleDependency({ userId, repositoryId, dependenc
 
   const packageName = dependency.packageName
   const ecosystem = dependency.ecosystem
+  const dependencyKey = dependencyKeyFor(dependency)
   const installedVersion = dependency.resolvedVersion || dependency.declaredVersion || update?.installedVersion || ''
   const targetVersion = update?.latestStableVersion || update?.latestVersion || installedVersion
 
   // Return existing research if completed and not expired (unless forced)
   if (!force) {
     const existing = await DependencyResearch.findOne({
-      userId: userMatch,
-      repositoryId: repoMatch,
-      dependencyId: depMatch,
+      ...dependencyResearchMatch({
+        userId: userObjId,
+        repositoryId: repoObjId,
+        dependencyKey,
+        dependencyId: depObjId,
+      }),
       researchStatus: 'COMPLETED',
       expiresAt: { $gt: new Date() },
     }).lean()
@@ -153,6 +305,7 @@ export async function researchSingleDependency({ userId, repositoryId, dependenc
       userId: userObjId,
       repositoryId: repoObjId,
       dependencyId: depObjId,
+      dependencyKey,
       ecosystem,
       packageName,
       installedVersion,
@@ -172,16 +325,20 @@ export async function researchSingleDependency({ userId, repositoryId, dependenc
     await update.save().catch(() => null)
   }
 
-  let researchDoc = await DependencyResearch.findOne({
-    userId: userMatch,
-    repositoryId: repoMatch,
-    dependencyId: depMatch,
-  })
+  let researchDoc = await DependencyResearch.findOne(
+    dependencyResearchMatch({
+      userId: userObjId,
+      repositoryId: repoObjId,
+      dependencyKey,
+      dependencyId: depObjId,
+    }),
+  )
   if (!researchDoc) {
     researchDoc = new DependencyResearch({
       userId: userObjId,
       repositoryId: repoObjId,
       dependencyId: depObjId,
+      dependencyKey,
       updateId: update?._id || null,
       packageName,
       ecosystem,
@@ -208,18 +365,51 @@ export async function researchSingleDependency({ userId, repositoryId, dependenc
           latestStableVersion: targetVersion,
         }
 
-    const researchResult = await researchPackageUpdate({
-      userId,
-      repositoryId,
-      dependencyId,
-      update: updatePayload,
-      force,
-    }).catch((err) => {
+    const firecrawlDeadline = Date.now() + FIRECRAWL_PACKAGE_TIMEOUT_MS
+    const researchResult = await withTimeout(
+      researchPackageUpdate({
+        userId,
+        repositoryId,
+        dependencyId,
+        update: updatePayload,
+        force,
+        isCancelled: () => Date.now() > firecrawlDeadline,
+      }),
+      FIRECRAWL_PACKAGE_TIMEOUT_MS,
+      {
+        documents: [],
+        status: 'TIMEOUT',
+        skipped: true,
+        limitations: [`Firecrawl exceeded ${FIRECRAWL_PACKAGE_TIMEOUT_MS}ms for ${packageName}.`],
+      },
+    ).catch((err) => {
       console.warn(`[research] Firecrawl research error for ${packageName}:`, sanitizeError(err))
-      return { documents: [], status: 'FAILED' }
+      return {
+        documents: [],
+        status: 'FAILED',
+        skipped: true,
+        limitations: [`Firecrawl failed: ${sanitizeError(err)}`],
+      }
     })
 
     const documents = researchResult?.documents || []
+    const noSourceFound = Boolean(researchResult?.skipped)
+      || ['NO_SOURCES', 'NO_RESULTS', 'UNAVAILABLE', 'ABORTED', 'TIMEOUT', 'FAILED'].includes(
+        String(researchResult?.status || ''),
+      )
+      || documents.length === 0
+    const researchLimitations = Array.isArray(researchResult?.limitations) ? researchResult.limitations : []
+    const fallbackReason = researchLimitations.join(' ') || `Firecrawl status: ${researchResult?.status || 'NO_SOURCES'}`
+    const knowledgeFallback = noSourceFound
+      ? await researchKnowledgeFallback({ update: updatePayload, reason: fallbackReason })
+      : null
+    if (noSourceFound) {
+      researchLimitations.push(
+        knowledgeFallback
+          ? 'AI knowledge fallback used; findings are unverified and not sourced from official documentation.'
+          : 'AI knowledge fallback was unavailable; marked Limited / No Source.',
+      )
+    }
     const scrapedUrls =
       documents.length > 0
         ? documents.map((d) => d.finalUrl || d.sourceUrl)
@@ -242,7 +432,13 @@ export async function researchSingleDependency({ userId, repositoryId, dependenc
 
     const packageInfo = {
       name: packageName,
-      description: sanitizeText(update?.metadata?.description || researchResult?.summary || `${packageName} official ecosystem package`, 500),
+      description: sanitizeText(
+        update?.metadata?.description ||
+          knowledgeFallback?.purpose ||
+          researchResult?.summary ||
+          `${packageName} ecosystem package`,
+        500,
+      ),
       websiteUrl: sanitizeText(update?.metadata?.homepage || sourceUrls[0] || '', 500),
       repositoryUrl: sanitizeText(update?.metadata?.repositoryUrl || `https://github.com/search?q=${encodeURIComponent(packageName)}`, 500),
       documentationUrl: sanitizeText(sourceUrls[0] || update?.metadata?.homepage || officialRegistryFallbackUrl, 500),
@@ -290,24 +486,50 @@ export async function researchSingleDependency({ userId, repositoryId, dependenc
     }))
 
     if (!findings.length) {
-      findings.push({
-        title: `${packageName} official release and repository intelligence`,
-        description: sanitizeText(
-          update?.metadata?.description ||
-            `Official package documentation, registry specification, and release intelligence for ${packageName} (${ecosystem}). Latest stable release: ${targetVersion}. Installed baseline: ${installedVersion || 'current'}.`,
-          2000,
-        ),
-        sourceUrl: sanitizeText(sourceUrls[0] || officialRegistryFallbackUrl, 500),
-        sourceType: 'OFFICIAL_REGISTRY',
-        publishedAt: update?.latestReleaseDate || new Date(),
-        retrievedAt: new Date(),
-        versionRange: sanitizeText(`${installedVersion || 'baseline'} -> ${targetVersion}`, 100),
-        evidence: sanitizeText(
-          `Official registry verification from ${ecosystem}. Latest stable version: ${targetVersion}. Official repository: ${packageInfo.repositoryUrl}. Official package page: ${packageInfo.registryUrl}.`,
-          1000,
-        ),
-        confidence: 0.95,
-      })
+      if (noSourceFound) {
+        // Be honest about a skipped dependency instead of inventing an
+        // "official intelligence" finding with high confidence.
+        findings.push({
+          title: knowledgeFallback
+            ? `${packageName}: AI knowledge summary (unverified)`
+            : `${packageName}: Limited / No Source`,
+          description: sanitizeText(
+            knowledgeFallback
+              ? `${knowledgeFallback.summary}${knowledgeFallback.upgradeImpact ? ` Upgrade impact: ${knowledgeFallback.upgradeImpact}` : ''}`
+              : `No public website, changelog or release page with usable content could be verified for ${packageName} (${ecosystem}). The dependency was skipped instead of blocking the research queue. Registry version data: ${targetVersion || 'version unknown'}.`,
+            2000,
+          ),
+          sourceUrl: sanitizeText(sourceUrls[0] || officialRegistryFallbackUrl, 500),
+          sourceType: knowledgeFallback ? 'AI_KNOWLEDGE' : 'REGISTRY',
+          publishedAt: null,
+          retrievedAt: new Date(),
+          versionRange: sanitizeText(`${installedVersion || 'baseline'} -> ${targetVersion}`, 100),
+          evidence: sanitizeText(
+            [knowledgeFallback?.limitations?.join(' '), researchLimitations.join(' ')].filter(Boolean).join(' '),
+            1000,
+          ),
+          confidence: knowledgeFallback ? Math.min(0.45, Number(knowledgeFallback.confidence) || 0.35) : 0.2,
+        })
+      } else {
+        findings.push({
+          title: `${packageName} official release and repository intelligence`,
+          description: sanitizeText(
+            update?.metadata?.description ||
+              `Official package documentation, registry specification, and release intelligence for ${packageName} (${ecosystem}). Latest stable release: ${targetVersion}. Installed baseline: ${installedVersion || 'current'}.`,
+            2000,
+          ),
+          sourceUrl: sanitizeText(sourceUrls[0] || officialRegistryFallbackUrl, 500),
+          sourceType: 'REGISTRY',
+          publishedAt: update?.latestReleaseDate || new Date(),
+          retrievedAt: new Date(),
+          versionRange: sanitizeText(`${installedVersion || 'baseline'} -> ${targetVersion}`, 100),
+          evidence: sanitizeText(
+            `Official registry verification from ${ecosystem}. Latest stable version: ${targetVersion}. Official repository: ${packageInfo.repositoryUrl}. Official package page: ${packageInfo.registryUrl}.`,
+            1000,
+          ),
+          confidence: 0.95,
+        })
+      }
     }
 
     const breakingChanges = (researchResult?.breakingChanges || []).map((b) => ({
@@ -325,25 +547,32 @@ export async function researchSingleDependency({ userId, repositoryId, dependenc
     researchDoc.findings = findings
     researchDoc.breakingChanges = breakingChanges
     researchDoc.sourceUrls = [...new Set(sourceUrls)]
-    researchDoc.researchStatus = 'COMPLETED'
-    researchDoc.confidence = researchResult?.confidence || 0.9
+    researchDoc.researchStatus = noSourceFound ? 'PARTIAL' : 'COMPLETED'
+    researchDoc.confidence = noSourceFound
+      ? Math.min(0.45, Number(knowledgeFallback?.confidence) || 0.2)
+      : (researchResult?.confidence || 0.9)
+    researchDoc.limitations = researchLimitations
+    researchDoc.error = ''
     researchDoc.researchedAt = new Date()
-    researchDoc.expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    researchDoc.expiresAt = new Date(Date.now() + (noSourceFound ? 1 : 7) * 24 * 60 * 60 * 1000)
     await researchDoc.save()
 
-    // 2. Run Gemini / Groq AI interpretation of the findings for this repository
-    await interpretResearchWithAI({
-      userId: userObjId,
-      repositoryId: repoObjId,
-      dependencyId: depObjId,
-      updateId: update?._id,
-      repository,
-      dependency,
-      update,
-      researchDoc,
-    }).catch((err) => {
-      console.warn('[research] AI interpretation failed non-critically:', sanitizeError(err))
-    })
+    // 2. Run Gemini / Groq AI interpretation only when there is real evidence.
+    // With no source there is nothing to interpret, so skip the extra model call.
+    if (!noSourceFound) {
+      await interpretResearchWithAI({
+        userId: userObjId,
+        repositoryId: repoObjId,
+        dependencyId: depObjId,
+        updateId: update?._id,
+        repository,
+        dependency,
+        update,
+        researchDoc,
+      }).catch((err) => {
+        console.warn('[research] AI interpretation failed non-critically:', sanitizeError(err))
+      })
+    }
 
     // Update DependencyUpdate record and guarantee canonical status
     if (update) {
@@ -356,7 +585,8 @@ export async function researchSingleDependency({ userId, repositoryId, dependenc
         canonicalStatus = 'UP_TO_DATE'
       }
 
-      update.researchStatus = 'COMPLETED'
+      const finalStatus = noSourceFound ? 'PARTIAL' : 'COMPLETED'
+      update.researchStatus = finalStatus
       update.researchId = researchDoc._id
       update.updateStatus = canonicalStatus
       update.registryError = ''
@@ -366,10 +596,10 @@ export async function researchSingleDependency({ userId, repositoryId, dependenc
         { _id: update._id },
         {
           $set: {
-            researchStatus: 'COMPLETED',
+            researchStatus: finalStatus,
             researchId: researchDoc._id,
             updateStatus: canonicalStatus,
-            registryError: '',
+            registryError: noSourceFound ? researchLimitations.join(' ') : '',
             registryUrl: update.registryUrl || officialRegistryFallbackUrl,
           },
         },
@@ -548,6 +778,10 @@ export async function queueRepositoryResearch({ userId, repositoryId, dependency
   const idMatch = { $in: [repoObjId, String(repoObjId)] }
   const userMatch = { $in: [userObjId, String(userObjId)] }
 
+  // Rescans can leave one update row per old dependency id. Collapse them so
+  // research progress and displayed counts use one row per package.
+  await deduplicateRepositoryUpdates({ userId: userObjId, repositoryId: repoObjId }).catch(() => null)
+
   const nonAtMatch = { $not: /^@/ }
   const [rawDependencies, rawUpdates] = await Promise.all([
     Dependency.find({ userId: userMatch, repositoryId: idMatch, packageName: nonAtMatch }).lean(),
@@ -586,7 +820,7 @@ export async function queueRepositoryResearch({ userId, repositoryId, dependency
     }
   }
 
-  const updatesByDepId = new Map(rawUpdates.map((u) => [String(u.dependencyId || u._id), u]))
+  const updatesByKey = new Map(rawUpdates.map((u) => [dependencyKeyFor(u), u]).filter(([key]) => key))
 
   // Prioritize dependencies:
   // 1. Core/Direct dependencies
@@ -594,7 +828,7 @@ export async function queueRepositoryResearch({ userId, repositoryId, dependency
   // 3. Vulnerable dependencies
   // 4. Other dependencies
   const scored = dependencies.map((dep) => {
-    const update = updatesByDepId.get(String(dep._id))
+    const update = updatesByKey.get(dependencyKeyFor(dep))
     let priorityScore = 0
     if (!dep.isDevelopmentDependency) priorityScore += 50
     if (update?.updateAvailable) priorityScore += 40
@@ -612,6 +846,7 @@ export async function queueRepositoryResearch({ userId, repositoryId, dependency
     total: sortedDeps.length,
     completed: 0,
     failed: 0,
+    skipped: 0,
     currentPackage: sortedDeps[0]?.packageName || '',
     percent: Math.min(5, Math.round(100 / Math.max(1, sortedDeps.length))),
     startedAt: new Date(),
@@ -624,16 +859,13 @@ export async function queueRepositoryResearch({ userId, repositoryId, dependency
   await Promise.all(
     sortedDeps.map(async (dep) => {
       await DependencyUpdate.findOneAndUpdate(
-        {
-          userId: userMatch,
-          repositoryId: idMatch,
-          $or: [{ dependencyId: dep._id }, { _id: dep._id }],
-        },
+        dependencyUpdateMatch({ ...dep, userId: userObjId, repositoryId: repoObjId }),
         {
           $setOnInsert: {
             userId: userObjId,
             repositoryId: repoObjId,
             dependencyId: dep._id,
+            dependencyKey: dependencyKeyFor(dep),
             ecosystem: dep.ecosystem,
             packageName: dep.packageName,
             installedVersion: dep.resolvedVersion || dep.declaredVersion || '',
@@ -666,22 +898,47 @@ export async function queueRepositoryResearch({ userId, repositoryId, dependency
         const dep = sortedDeps[currentIndex++]
         if (!dep) break
         jobState.currentPackage = dep.packageName
+        jobState.updatedAt = new Date()
         try {
-          await researchSingleDependency({
-            userId: userObjId,
-            repositoryId: repoObjId,
-            dependencyId: dep._id,
-            force: false,
-          })
-          jobState.completed += 1
+          const result = await withTimeout(
+            researchSingleDependency({
+              userId: userObjId,
+              repositoryId: repoObjId,
+              dependencyId: dep._id,
+              force: false,
+            }),
+            DEPENDENCY_RESEARCH_TIMEOUT_MS,
+            null,
+          )
+          if (result === null) {
+            console.warn(`[research-job] Timed out researching ${dep.packageName}; skipping.`)
+            await markResearchSkipped({
+              userId: userObjId,
+              repositoryId: repoObjId,
+              dependencyId: dep._id,
+              dependencyKey: dependencyKeyFor(dep),
+              packageName: dep.packageName,
+              ecosystem: dep.ecosystem,
+              reason: 'Per-package research budget exceeded',
+            })
+            jobState.skipped = (jobState.skipped || 0) + 1
+          } else if (result?.researchStatus === 'PARTIAL') {
+            jobState.skipped = (jobState.skipped || 0) + 1
+          } else if (result?.researchStatus === 'FAILED') {
+            jobState.failed += 1
+          } else {
+            jobState.completed += 1
+          }
         } catch (err) {
           console.warn(`[research-job] Failed researching ${dep.packageName}:`, sanitizeError(err))
           jobState.failed += 1
         }
-        jobState.percent = Math.max(
-          5,
-          Math.min(99, Math.round(((jobState.completed + jobState.failed) / jobState.total) * 100)),
-        )
+        const settled = jobState.completed + jobState.failed + (jobState.skipped || 0)
+        jobState.percent = Math.max(5, Math.min(99, Math.round((settled / jobState.total) * 100)))
+        // Move the target label immediately so the UI shows progress even when
+        // this dependency was skipped or used the AI fallback.
+        jobState.currentPackage = sortedDeps[currentIndex]?.packageName || 'Finalizing research…'
+        jobState.updatedAt = new Date()
       }
     }
 

@@ -19,6 +19,7 @@ import {
   triggerDependencyAnalysisEndpoint,
   triggerDependencyResearch,
   triggerRepositoryResearch,
+  universalCatalog,
   vulnerabilities,
 } from '../controllers/updateController.js'
 
@@ -28,6 +29,7 @@ router.use(protect)
 router.get('/overview', overview)
 router.get('/repositories', listRepositories)
 router.get('/list', listUpdates)
+router.get('/universal', universalCatalog)
 router.get('/vulnerabilities', vulnerabilities)
 router.get('/status/:repositoryId', status)
 

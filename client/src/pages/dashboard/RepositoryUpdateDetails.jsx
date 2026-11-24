@@ -229,9 +229,14 @@ export default function RepositoryUpdateDetails() {
             total: prev?.total || data?.stats?.total || 1,
             completed: res.counts.COMPLETED || 0,
             failed: res.counts.FAILED || 0,
+            skipped: res.counts.SKIPPED || 0,
             percent: Math.max(
               5,
-              Math.round(((res.counts.COMPLETED || 0) / Math.max(1, prev?.total || data?.stats?.total || 1)) * 100),
+              Math.round(
+                (((res.counts.COMPLETED || 0) + (res.counts.FAILED || 0) + (res.counts.PARTIAL || 0)) /
+                  Math.max(1, prev?.total || data?.stats?.total || 1)) *
+                  100,
+              ),
             ),
             currentPackage: prev?.currentPackage || 'Researching official documentation…',
             startedAt: prev?.startedAt || new Date().toISOString(),
@@ -352,7 +357,7 @@ export default function RepositoryUpdateDetails() {
     setToast({
       type: 'info',
       title: 'Generating PDF Report…',
-      message: 'Compiling dependency data, Firecrawl research, and AI suggestions into PDF…',
+      message: 'Compiling dependency data and AI upgrade guidance into PDF…',
     })
     try {
       const { blob, filename } = await updatesApi.exportRepositoryPdf(repositoryId)
@@ -414,6 +419,7 @@ export default function RepositoryUpdateDetails() {
 
   const researchTotalCount =
     activeResearchJob?.total || stats.total || stats.totalDependencies || 1
+  const researchSkippedCount = activeResearchJob?.skipped || 0
   const researchCompletedCount =
     (activeResearchJob?.completed || 0) + (activeResearchJob?.failed || 0)
   const rawResearchPercent =
@@ -443,7 +449,7 @@ export default function RepositoryUpdateDetails() {
 
   let researchStageLabel = 'Discovering official package documentation & GitHub links…'
   if (isCompleted) {
-    researchStageLabel = `Research complete! All ${researchTotalCount} dependencies analyzed with Firecrawl intelligence.`
+    researchStageLabel = `Research complete! ${researchTotalCount} dependencies checked${researchSkippedCount ? `, ${researchSkippedCount} skipped (no public source)` : ''}.`
   } else if (displayPercent >= 85) {
     researchStageLabel = 'Running Gemini AI upgrade impact & migration step interpretation…'
   } else if (displayPercent >= 55) {
@@ -492,7 +498,7 @@ export default function RepositoryUpdateDetails() {
               leftIcon={LuDownload}
               loading={downloadingPdf}
               onClick={handleExportPdf}
-              title="Download comprehensive PDF report with dependency statuses, Firecrawl research, and AI suggestions"
+              title="Download comprehensive PDF report with dependency statuses and AI upgrade guidance"
             >
               Export PDF
             </Button>
@@ -794,7 +800,9 @@ export default function RepositoryUpdateDetails() {
               <div className="relative mt-6 flex flex-wrap items-center justify-between gap-3 pt-2">
                 <p className="text-xs text-slate-400">
                   {isCompleted
-                    ? 'All dependencies researched and stored.'
+                    ? researchSkippedCount
+                      ? `${researchSkippedCount} dependenc${researchSkippedCount === 1 ? 'y' : 'ies'} skipped — no official web source was found.`
+                      : 'All dependencies researched and stored.'
                     : 'You can close this popup anytime; research continues safely in background.'}
                 </p>
                 <div className="flex items-center gap-2">
@@ -1018,7 +1026,9 @@ export default function RepositoryUpdateDetails() {
                 </span>
                 <span className="font-mono text-[10px] text-slate-400">
                   {isCompleted
-                    ? 'Official documentation, changelogs & AI interpretations stored'
+                    ? researchSkippedCount
+                      ? `${researchSkippedCount} skipped automatically — research never stalls on a missing source`
+                      : 'Official documentation, changelogs & AI interpretations stored'
                     : 'Parallel Firecrawl crawler • Rate-limited safe discovery'}
                 </span>
               </div>

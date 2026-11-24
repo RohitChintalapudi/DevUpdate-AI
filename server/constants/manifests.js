@@ -33,8 +33,10 @@ export const MAX_MANIFESTS_PER_SCAN = 50
 export const MAX_MANIFEST_BYTES = 1_000_000
 export const MAX_TREE_ENTRIES = 20_000
 export const MAX_TREE_DEPTH = 6
-export const MAX_CONCURRENT_REQUESTS = 12
+export const MAX_CONCURRENT_REQUESTS = 20
 export const GITHUB_REQUEST_TIMEOUT_MS = 10_000
+// GitHub GraphQL allows many aliased blob lookups in a single request.
+export const GRAPHQL_BATCH_SIZE = 25
 
 // Ordered so lockfiles can be matched before their generic counterparts.
 export const MANIFEST_MATCHERS = [

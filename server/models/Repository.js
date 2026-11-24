@@ -27,6 +27,7 @@ const repositorySchema = new Schema(
     lastScanId: { type: Schema.Types.ObjectId, ref: 'ScanJob', default: null },
     lastScanError: { type: String, default: '' },
     dependencyCount: { type: Number, default: 0 },
+    discoveredDependencyCount: { type: Number, default: 0 },
     manifestFiles: { type: [String], default: [] },
     lastUpdateCheckAt: { type: Date, default: null },
     updateCheckStatus: {

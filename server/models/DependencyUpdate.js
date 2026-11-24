@@ -59,6 +59,8 @@ const dependencyUpdateSchema = new Schema(
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     repositoryId: { type: Schema.Types.ObjectId, ref: 'Repository', required: true, index: true },
     dependencyId: { type: Schema.Types.ObjectId, ref: 'Dependency', required: true, index: true },
+    // Stable identity that survives repository rescans (dependencyId does not).
+    dependencyKey: { type: String, default: '', index: true },
     ecosystem: { type: String, required: true },
     packageName: { type: String, required: true },
     declaredVersion: { type: String, default: '' },
@@ -90,6 +92,10 @@ const dependencyUpdateSchema = new Schema(
     abandoned: { type: Boolean, default: false },
     yanked: { type: Boolean, default: false },
     registryUrl: { type: String, default: '' },
+    popularityScore: { type: Number, default: 0 },
+    popularityDownloads: { type: Number, default: 0 },
+    popularitySource: { type: String, default: 'heuristic' },
+    popularityRank: { type: Number, default: 0 },
     lastCheckedAt: { type: Date, default: Date.now },
     nextCheckAt: { type: Date, default: null },
     registryError: { type: String, default: '' },
@@ -113,6 +119,7 @@ dependencyUpdateSchema.index(
   { unique: true, name: 'dependency_update_unique' },
 )
 dependencyUpdateSchema.index({ userId: 1, repositoryId: 1 })
+dependencyUpdateSchema.index({ userId: 1, repositoryId: 1, dependencyKey: 1 })
 dependencyUpdateSchema.index({ userId: 1, updateStatus: 1 })
 dependencyUpdateSchema.index({ userId: 1, securityStatus: 1 })
 dependencyUpdateSchema.index({ userId: 1, updateType: 1 })

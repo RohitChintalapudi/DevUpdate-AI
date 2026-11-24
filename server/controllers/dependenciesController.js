@@ -4,10 +4,12 @@ import { AppError, asyncHandler } from '../utils/errors.js'
 import { sanitizeText, isValidObjectId } from '../utils/sanitize.js'
 
 const SORT_OPTIONS = {
+  popular: { popularityRank: 1, popularityScore: -1, packageName: 1 },
   name: { packageName: 1 },
   ecosystem: { ecosystem: 1, packageName: 1 },
   extracted: { extractedAt: -1 },
 }
+const DEFAULT_SORT = SORT_OPTIONS.popular
 
 function paginate(query) {
   const page = Math.max(1, Number.parseInt(query.page, 10) || 1)
@@ -50,7 +52,7 @@ function buildFilter(query, userId) {
 export const listDependencies = asyncHandler(async (req, res) => {
   const { page, limit, skip } = paginate(req.query)
   const filter = buildFilter(req.query, req.user._id)
-  const sort = SORT_OPTIONS[req.query.sort] || { extractedAt: -1 }
+  const sort = SORT_OPTIONS[req.query.sort] || DEFAULT_SORT
 
   const [dependencies, total, ecosystems, repositories] = await Promise.all([
     Dependency.find(filter)
@@ -85,7 +87,7 @@ export const listByRepository = asyncHandler(async (req, res) => {
   const { page, limit, skip } = paginate(req.query)
   const filter = buildFilter({ ...req.query, repositoryId }, req.user._id)
   const [dependencies, total] = await Promise.all([
-    Dependency.find(filter).sort(SORT_OPTIONS[req.query.sort] || { packageName: 1 }).skip(skip).limit(limit).lean(),
+    Dependency.find(filter).sort(SORT_OPTIONS[req.query.sort] || DEFAULT_SORT).skip(skip).limit(limit).lean(),
     Dependency.countDocuments(filter),
   ])
 
