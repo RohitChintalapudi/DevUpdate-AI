@@ -6,7 +6,6 @@ import {
   classificationLabel,
   classificationTone,
   ecosystemTone,
-  formatDate,
   formatVersion,
   getCanonicalUpdateStatus,
   securityStatusLabel,
