@@ -67,6 +67,7 @@ function NavButton({ item, isActive, collapsed, onNavigate }) {
   return (
     <NavLink
       to={item.path}
+      aria-label={item.label}
       onClick={onNavigate}
       className={[
         'group relative flex h-10 items-center rounded-xl text-[13px] font-medium transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2',
