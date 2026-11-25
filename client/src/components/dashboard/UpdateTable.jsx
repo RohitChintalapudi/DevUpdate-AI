@@ -174,6 +174,7 @@ export default function UpdateTable({
                         to={`/dashboard/updates/${detailId}`}
                         className="inline-flex items-center gap-1 rounded-lg p-1 text-xs font-semibold text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
                         title="View standalone detail page"
+                        aria-label="View standalone detail page"
                       >
                         <LuArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
                       </Link>
