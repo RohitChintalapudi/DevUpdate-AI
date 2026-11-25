@@ -32,7 +32,11 @@ git config user.email "216713165+RohitChintalapudi@users.noreply.github.com"
 ```
 
 Do not use the old `rohitgaming0024@users.noreply.github.com` address; it is not linked to the
-current GitHub account and its commits are ignored by the contribution graph.
+current GitHub account and its commits are ignored by the contribution graph. Verify the setup with:
+
+```bash
+node scripts/check-git-identity.mjs
+```
 
 ## Checks
 
