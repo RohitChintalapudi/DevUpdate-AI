@@ -868,3 +868,17 @@ context and degradation, and authentication on all Phase 5 routes.
 - Email delivery is not configured; the email preference is recorded but no mail is sent.
 - Reports are snapshots at generation time. They never mutate source records or trigger upgrades.
 - Developer/test provider credentials should be rotated before production use.
+
+## Git contribution setup
+
+GitHub only credits commits whose author email is linked to the account. This repository uses the
+no-reply email for **RohitChintalapudi** (account ID `216713165`):
+
+```bash
+git config user.name "Rohit Chintalapudi"
+git config user.email "216713165+RohitChintalapudi@users.noreply.github.com"
+```
+
+The older `rohitgaming0024@users.noreply.github.com` address is not linked to the current account,
+so commits authored with it do not appear in the contribution graph. Multiple commits on the same
+day still produce one contribution square; a streak needs at least one linked commit per day.
