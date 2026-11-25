@@ -11,7 +11,6 @@ import {
   LuPanelLeftOpen,
   LuRadio,
   LuSettings,
-  LuSparkles,
   LuX,
 } from 'react-icons/lu'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
@@ -44,14 +43,6 @@ const PRIMARY_NAV_ITEMS = [
       pathname.startsWith('/dashboard/intelligence') ||
       pathname.startsWith('/dashboard/vulnerabilities') ||
       pathname.startsWith('/dashboard/reports'),
-  },
-  {
-    label: 'AI Intelligence',
-    path: '/dashboard/ai',
-    icon: LuSparkles,
-    isMatch: (pathname) =>
-      pathname.startsWith('/dashboard/ai') ||
-      pathname.startsWith('/dashboard/recommendations'),
   },
   {
     label: 'Release Radar',
