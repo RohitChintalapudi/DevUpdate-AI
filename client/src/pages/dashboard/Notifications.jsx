@@ -27,6 +27,7 @@ import {
   matchesNotificationFilters,
 } from '../../utils/notificationHelpers'
 import { getErrorMessage, notificationsApi, repositoriesApi } from '../../services/api'
+import { notifyNotificationsChanged } from '../../utils/notificationEvents'
 
 const defaultPreferences = {
   inApp: true,
@@ -194,6 +195,7 @@ export default function Notifications() {
     setUnread((current) => Math.max(0, current - 1))
     try {
       await notificationsApi.readOne(item._id)
+      notifyNotificationsChanged()
     } catch (error) {
       await load()
       setToast({ type: 'error', title: 'Could not mark notification as read', message: getErrorMessage(error) })
@@ -208,6 +210,7 @@ export default function Notifications() {
     setUnread(0)
     try {
       const result = await notificationsApi.readAll(repositoryId || undefined)
+      notifyNotificationsChanged()
       setToast({
         type: 'success',
         title: 'Inbox up to date',
@@ -228,6 +231,7 @@ export default function Notifications() {
     if (!item.readAt) setUnread((current) => Math.max(0, current - 1))
     try {
       await notificationsApi.delete(item._id)
+      notifyNotificationsChanged()
       setToast({ type: 'success', title: 'Notification removed', message: item.title })
     } catch (error) {
       setNotifications(previous)
@@ -241,6 +245,7 @@ export default function Notifications() {
     try {
       const result = await notificationsApi.updatePreferences(preferences)
       setPreferences(result.preferences)
+      notifyNotificationsChanged()
       setToast({ type: 'success', title: 'Preferences saved', message: 'Your notification settings are up to date.' })
     } catch (error) {
       setToast({ type: 'error', title: 'Could not save preferences', message: getErrorMessage(error) })

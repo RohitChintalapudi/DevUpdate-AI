@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react'
-import { LuBell, LuChevronDown, LuChevronRight, LuCircleAlert, LuLogOut, LuMenu, LuSearch, LuSettings, LuShieldAlert, LuSparkles, LuUserRound, LuTriangleAlert } from 'react-icons/lu'
+import { useState } from 'react'
+import { LuChevronDown, LuChevronRight, LuLogOut, LuMenu, LuSearch, LuSettings, LuUserRound } from 'react-icons/lu'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Dropdown from '../common/Dropdown'
+import NotificationCenter from '../notifications/NotificationCenter'
 import { useAuth } from '../../context/AuthContext'
-import { notificationsApi } from '../../services/api'
 
 const routeNames = {
   '/dashboard': 'Dashboard',
@@ -24,24 +24,11 @@ const routeNames = {
   '/dashboard/settings': 'Settings',
 }
 
-const notificationIcon = {
-  SECURITY_VULNERABILITY: LuShieldAlert,
-  DEPRECATED_PACKAGE: LuTriangleAlert,
-  AI_ANALYSIS_FAILED: LuCircleAlert,
-  SCAN_FAILED: LuCircleAlert,
-  VULNERABILITY_FIXED: LuShieldAlert,
-  AI_ANALYSIS_COMPLETED: LuSparkles,
-  RECOMMENDATION_CHANGED: LuSparkles,
-  MAJOR_UPDATE: LuSparkles,
-}
-
 export default function Topbar({ onOpenMobileNav, onOpenLogout }) {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const [search, setSearch] = useState('')
-  const [unread, setUnread] = useState(0)
-  const [recent, setRecent] = useState([])
   const path = location.pathname
   const current =
     routeNames[path] ||
@@ -59,40 +46,6 @@ export default function Topbar({ onOpenMobileNav, onOpenLogout }) {
     .join('')
     .toUpperCase()
 
-  const loadNotifications = useCallback(async () => {
-    try {
-      const [countResult, recentResult] = await Promise.all([
-        notificationsApi.unreadCount(),
-        notificationsApi.recent({ limit: 5 }),
-      ])
-      setUnread(countResult.count || 0)
-      setRecent(recentResult.notifications || [])
-    } catch {
-      // Notifications are non-critical chrome; failures must not break the layout.
-      setUnread(0)
-      setRecent([])
-    }
-  }, [])
-
-  useEffect(() => {
-    let active = true
-    const run = async () => {
-      await Promise.resolve()
-      if (active) await loadNotifications()
-    }
-    run()
-    return () => { active = false }
-  }, [loadNotifications, path])
-
-  const openNotification = async (notificationId) => {
-    try {
-      await notificationsApi.readOne(notificationId)
-    } catch {
-      // Marking read is best-effort here; navigation still proceeds.
-    }
-    navigate('/dashboard/notifications')
-  }
-
   const handleLogout = () => {
     if (onOpenLogout) {
       onOpenLogout()
@@ -100,20 +53,6 @@ export default function Topbar({ onOpenMobileNav, onOpenLogout }) {
       logout().then(() => navigate('/login', { replace: true }))
     }
   }
-
-  const notificationItems = [
-    ...recent.map((item) => ({
-      label: `${item.readAt ? '' : '• '}${item.title}`,
-      icon: notificationIcon[item.type] || LuBell,
-      onClick: () => openNotification(item._id),
-    })),
-    { divider: true },
-    {
-      label: unread ? `View all notifications (${unread} unread)` : 'View all notifications',
-      icon: LuBell,
-      onClick: () => navigate('/dashboard/notifications'),
-    },
-  ]
 
   return (
     <header className="sticky top-0 z-30 flex h-[72px] items-center gap-3 border-b border-slate-200/80 bg-white/85 px-4 backdrop-blur-xl sm:px-6">
@@ -150,23 +89,7 @@ export default function Topbar({ onOpenMobileNav, onOpenLogout }) {
       </form>
 
       <div className="ml-auto flex items-center gap-1.5 sm:ml-0">
-        <Dropdown
-          trigger={
-            <button
-              type="button"
-              aria-label={`Notifications${unread ? `, ${unread} unread` : ''}`}
-              className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
-            >
-              <LuBell className="h-[17px] w-[17px]" />
-              {unread ? (
-                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-sky-600 px-1 text-[9px] font-bold text-white ring-2 ring-white">
-                  {unread > 99 ? '99+' : unread}
-                </span>
-              ) : null}
-            </button>
-          }
-          items={notificationItems}
-        />
+        <NotificationCenter />
 
         <div className="mx-1 hidden h-6 w-px bg-slate-200 sm:block" />
 
