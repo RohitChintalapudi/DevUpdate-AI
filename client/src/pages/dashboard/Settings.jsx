@@ -6,20 +6,23 @@ import {
   LuCheck,
   LuCopy,
   LuFingerprint,
+  LuGithub,
   LuKeyRound,
   LuLockKeyhole,
+  LuLogOut,
   LuMail,
   LuMonitor,
   LuMoon,
+  LuRefreshCw,
   LuSave,
-  LuShield,
   LuSun,
   LuUserRound,
 } from 'react-icons/lu'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Badge from '../../components/common/Badge'
 import Button from '../../components/common/Button'
 import Input from '../../components/common/Input'
+import Modal from '../../components/common/Modal'
 import PageHeader from '../../components/common/PageHeader'
 import Skeleton from '../../components/common/Skeleton'
 import Toast from '../../components/common/Toast'
@@ -30,7 +33,7 @@ import SettingsNav from '../../components/settings/SettingsNav'
 import SettingsSection from '../../components/settings/SettingsSection'
 import { isSettingsTab } from '../../constants/settingsTabs'
 import { useAuth } from '../../context/AuthContext'
-import { getErrorMessage, notificationsApi, repositoriesApi } from '../../services/api'
+import { getErrorMessage, githubApi, notificationsApi, repositoriesApi } from '../../services/api'
 import { ACCENTS, readAppearance, saveAppearance } from '../../utils/appearanceSettings'
 import { notifyNotificationsChanged } from '../../utils/notificationEvents'
 import { formatDate } from '../../utils/updateHelpers'
@@ -42,7 +45,8 @@ const themeOptions = [
 ]
 
 export default function Settings() {
-  const { user, updateProfile } = useAuth()
+  const navigate = useNavigate()
+  const { user, updateProfile, logout } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const requested = searchParams.get('tab')
   const [tab, setTab] = useState(isSettingsTab(requested) ? requested : 'profile')
@@ -56,6 +60,11 @@ export default function Settings() {
   const [preferencesDirty, setPreferencesDirty] = useState(false)
   const [preferencesSaving, setPreferencesSaving] = useState(false)
   const [appearance, setAppearance] = useState(() => readAppearance())
+  const [githubStatus, setGithubStatus] = useState(null)
+  const [githubLoading, setGithubLoading] = useState(false)
+  const [githubRefreshKey, setGithubRefreshKey] = useState(0)
+  const [signOutOpen, setSignOutOpen] = useState(false)
+  const [signingOut, setSigningOut] = useState(false)
 
   useEffect(() => {
     if (!toast) return undefined
@@ -91,6 +100,26 @@ export default function Settings() {
     loadPreferences()
     return () => { active = false }
   }, [])
+
+  useEffect(() => {
+    if (tab !== 'security') return undefined
+    let active = true
+    const loadGithubStatus = async () => {
+      setGithubLoading(true)
+      try {
+        const data = await githubApi.status()
+        if (active) setGithubStatus(data)
+      } catch (error) {
+        if (active) {
+          setToast({ type: 'error', title: 'Could not load GitHub status', message: getErrorMessage(error) })
+        }
+      } finally {
+        if (active) setGithubLoading(false)
+      }
+    }
+    loadGithubStatus()
+    return () => { active = false }
+  }, [tab, githubRefreshKey])
 
   const selectTab = (id) => {
     setTab(id)
@@ -159,6 +188,39 @@ export default function Settings() {
       setToast({ type: 'error', title: 'Could not copy ID', message: 'Clipboard access is unavailable in this browser.' })
     }
   }
+
+  const handleSignOut = async () => {
+    setSigningOut(true)
+    try {
+      await logout()
+      setSignOutOpen(false)
+      navigate('/login', { replace: true })
+    } catch (error) {
+      setToast({ type: 'error', title: 'Could not sign out', message: getErrorMessage(error) })
+    } finally {
+      setSigningOut(false)
+    }
+  }
+
+  const githubConnected = Boolean(githubStatus?.connected)
+  const githubTone = !githubStatus
+    ? 'neutral'
+    : githubConnected
+      ? githubStatus.tokenValid === false
+        ? 'warning'
+        : 'success'
+      : githubStatus.status === 'EXPIRED'
+        ? 'danger'
+        : 'neutral'
+  const githubLabel = !githubStatus
+    ? githubLoading ? 'Checking…' : 'Unavailable'
+    : githubConnected
+      ? githubStatus.tokenValid === false
+        ? 'Access limited'
+        : 'Connected'
+      : githubStatus.status === 'EXPIRED'
+        ? 'Reconnect required'
+        : 'Not connected'
 
   const initials = (user?.name || 'DU')
     .split(' ')
@@ -480,23 +542,200 @@ export default function Settings() {
             ) : null}
 
             {tab === 'security' ? (
-              <SettingsSection
-                eyebrow="Protection"
-                title="Security"
-                description="Session and account protection details."
-              >
-                <div className="divide-y divide-slate-100">
-                  <SettingRow icon={LuShield} title="HTTP-only session cookie" description="Protected from client-side JavaScript access">
-                    <Badge tone="success" dot>Active</Badge>
-                  </SettingRow>
-                  <SettingRow icon={LuKeyRound} title="Password change" description="Password rotation will be available in a later phase.">
-                    <Badge tone="neutral">Unavailable</Badge>
-                  </SettingRow>
-                  <SettingRow icon={LuLockKeyhole} title="CSRF protection" description="State-changing requests require a verified header.">
-                    <Badge tone="success" dot>Enabled</Badge>
-                  </SettingRow>
-                </div>
-              </SettingsSection>
+              <>
+                <SettingsSection
+                  eyebrow="Protection"
+                  title="Session security"
+                  description="Review how this session is protected, then end it when you are done."
+                  actions={<Badge tone="success" dot>Session active</Badge>}
+                >
+                  <div className="divide-y divide-slate-100">
+                    <SettingRow
+                      icon={LuMonitor}
+                      title="Current session"
+                      description="This browser is signed in with the HTTP-only cookie issued by the API."
+                      meta={<Badge tone="neutral">This device</Badge>}
+                    >
+                      <Badge tone="success" dot>Active</Badge>
+                    </SettingRow>
+                    <SettingRow icon={LuMail} title="Signed in as" description="Account associated with the active session">
+                      <span className="max-w-[220px] truncate text-[13px] font-semibold text-slate-900">
+                        {user?.email || '—'}
+                      </span>
+                    </SettingRow>
+                    <SettingRow
+                      icon={LuFingerprint}
+                      title="Token storage"
+                      description="No bearer tokens are written to browser local storage."
+                    >
+                      <Badge tone="violet">Cookie only</Badge>
+                    </SettingRow>
+                    <SettingRow
+                      icon={LuLockKeyhole}
+                      title="CSRF protection"
+                      description="State-changing requests require a verified CSRF header."
+                    >
+                      <Badge tone="success" dot>Enabled</Badge>
+                    </SettingRow>
+                    <SettingRow
+                      icon={LuKeyRound}
+                      title="Password rotation"
+                      description="Password changes are not available in this release."
+                    >
+                      <Badge tone="neutral">Unavailable</Badge>
+                    </SettingRow>
+                    <SettingRow
+                      icon={LuLogOut}
+                      title="End session"
+                      description="Sign out of this workspace and return to the sign-in page."
+                    >
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        leftIcon={LuLogOut}
+                        onClick={() => setSignOutOpen(true)}
+                      >
+                        Sign out
+                      </Button>
+                    </SettingRow>
+                  </div>
+                </SettingsSection>
+
+                <SettingsSection
+                  eyebrow="Connections"
+                  title="Connected services"
+                  description="GitHub access powers repository sync and dependency updates."
+                  actions={<Badge tone={githubTone} dot={githubConnected}>{githubLabel}</Badge>}
+                >
+                  {githubLoading && !githubStatus ? (
+                    <div className="space-y-3">
+                      <Skeleton className="h-24" />
+                      <Skeleton className="h-12" />
+                    </div>
+                  ) : githubConnected ? (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                      <div className="flex flex-wrap items-center gap-3">
+                        {githubStatus.profile?.avatarUrl ? (
+                          <img
+                            src={githubStatus.profile.avatarUrl}
+                            alt=""
+                            referrerPolicy="no-referrer"
+                            className="h-11 w-11 rounded-xl border border-slate-200 object-cover"
+                          />
+                        ) : (
+                          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-950 text-white">
+                            <LuGithub className="h-5 w-5" aria-hidden="true" />
+                          </span>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[14px] font-semibold text-slate-950">
+                            {githubStatus.profile?.username || 'GitHub account'}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-slate-500">
+                            Connected {formatDate(githubStatus.profile?.connectedAt)}
+                          </p>
+                        </div>
+                        <Badge
+                          tone={githubStatus.tokenValid === false ? 'warning' : 'success'}
+                          dot={githubStatus.tokenValid !== false}
+                        >
+                          {githubStatus.tokenValid === false ? 'Access limited' : 'Token valid'}
+                        </Badge>
+                      </div>
+
+                      {githubStatus.message ? (
+                        <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-800">
+                          {githubStatus.message}
+                        </p>
+                      ) : null}
+
+                      <div className="mt-4 grid gap-3 border-t border-slate-200 pt-4 sm:grid-cols-2">
+                        <div>
+                          <p className="label-caps">Repositories</p>
+                          <p className="mt-1 text-[13px] font-semibold text-slate-900">
+                            {githubStatus.repositoryCount ?? 0} synced
+                          </p>
+                        </div>
+                        <div>
+                          <p className="label-caps">Sync state</p>
+                          <p className="mt-1 text-[13px] font-semibold text-slate-900">
+                            {githubStatus.syncing
+                              ? 'Sync in progress'
+                              : githubStatus.status === 'CONNECTED'
+                                ? 'Up to date'
+                                : githubStatus.status}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-slate-200 pt-4">
+                        <Link
+                          to="/dashboard/repositories"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-700 transition hover:text-sky-900"
+                        >
+                          Open repositories
+                          <LuArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                        </Link>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          leftIcon={LuRefreshCw}
+                          loading={githubLoading}
+                          onClick={() => setGithubRefreshKey((value) => value + 1)}
+                        >
+                          Refresh status
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 p-5 text-center">
+                      <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-white text-slate-500 ring-1 ring-slate-200">
+                        <LuGithub className="h-5 w-5" aria-hidden="true" />
+                      </span>
+                      <p className="mt-3 text-[13px] font-semibold text-slate-900">
+                        {githubStatus?.status === 'EXPIRED' ? 'GitHub needs reconnecting' : 'GitHub is not connected'}
+                      </p>
+                      <p className="mx-auto mt-1 max-w-md text-[11px] leading-relaxed text-slate-500">
+                        {githubStatus?.message ||
+                          (githubStatus?.configured === false
+                            ? 'GitHub OAuth is not configured in this deployment.'
+                            : 'Connect GitHub to sync repositories and generate dependency updates.')}
+                      </p>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="mt-4"
+                        leftIcon={LuGithub}
+                        onClick={() => navigate('/dashboard/repositories')}
+                      >
+                        Manage connection
+                      </Button>
+                    </div>
+                  )}
+                </SettingsSection>
+
+                <Modal
+                  open={signOutOpen}
+                  onClose={() => { if (!signingOut) setSignOutOpen(false) }}
+                  title="Sign out of DevUpdate AI?"
+                  description="Your current session will end and you will return to the sign-in page. Appearance preferences stay on this device."
+                  footer={
+                    <>
+                      <Button variant="ghost" onClick={() => setSignOutOpen(false)} disabled={signingOut}>
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="danger"
+                        leftIcon={LuLogOut}
+                        loading={signingOut}
+                        onClick={handleSignOut}
+                      >
+                        Sign out
+                      </Button>
+                    </>
+                  }
+                />
+              </>
             ) : null}
           </motion.div>
         </AnimatePresence>
