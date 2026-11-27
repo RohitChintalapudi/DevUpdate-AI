@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="daylight">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -9,6 +9,15 @@
       name="description"
       content="DevUpdate AI — AI-powered GitHub dependency intelligence. Monitor updates, understand release notes and make smarter upgrade decisions."
     />
+    <script>
+      try {
+        const pref = JSON.parse(localStorage.getItem('devupdate:appearance') || '{}').theme || 'daylight'
+        const dark = pref === 'midnight' || (pref === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.dataset.theme = dark ? 'midnight' : 'daylight'
+        document.documentElement.dataset.themePreference = pref
+        document.querySelector('meta[name="theme-color"]').content = dark ? '#080B14' : '#F8FAFC'
+      } catch {}
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

@@ -34,15 +34,12 @@ import SettingsSection from '../../components/settings/SettingsSection'
 import { isSettingsTab } from '../../constants/settingsTabs'
 import { useAuth } from '../../context/AuthContext'
 import { getErrorMessage, githubApi, notificationsApi, repositoriesApi } from '../../services/api'
-import { ACCENTS, readAppearance, saveAppearance } from '../../utils/appearanceSettings'
+import { ACCENTS, THEMES, readAppearance, saveAppearance } from '../../utils/appearanceSettings'
 import { notifyNotificationsChanged } from '../../utils/notificationEvents'
 import { formatDate } from '../../utils/updateHelpers'
 
-const themeOptions = [
-  { id: 'daylight', label: 'Daylight', description: 'Clean light surfaces with high-contrast text.', icon: LuSun, active: true },
-  { id: 'midnight', label: 'Midnight', description: 'Planned for a future release.', icon: LuMoon, active: false },
-  { id: 'system', label: 'System', description: 'Planned for a future release.', icon: LuMonitor, active: false },
-]
+const themeIcons = { daylight: LuSun, midnight: LuMoon, system: LuMonitor }
+const themeOptions = THEMES.map((theme) => ({ ...theme, icon: themeIcons[theme.id] }))
 
 export default function Settings() {
   const navigate = useNavigate()
@@ -336,29 +333,51 @@ export default function Settings() {
                 eyebrow="Display"
                 title="Appearance"
                 description="Preferences are saved on this device and applied instantly across the workspace."
-                actions={<Badge tone="cyan">{ACCENTS.find((accent) => accent.id === appearance.accent)?.label} accent</Badge>}
+                actions={
+                  <Badge tone="cyan">
+                    {THEMES.find((theme) => theme.id === appearance.theme)?.label} ·{' '}
+                    {ACCENTS.find((accent) => accent.id === appearance.accent)?.label} accent
+                  </Badge>
+                }
               >
                 <div className="space-y-6">
                   <div>
                     <p className="label-caps mb-3">Theme</p>
                     <div className="grid gap-3 sm:grid-cols-3">
-                      {themeOptions.map((theme) => (
-                        <button
-                          key={theme.id}
-                          type="button"
-                          disabled={!theme.active}
-                          className={`relative rounded-xl border p-4 text-left transition ${
-                            theme.active
-                              ? 'border-sky-300 bg-sky-50/60'
-                              : 'cursor-not-allowed border-slate-200 bg-slate-50/60 opacity-60'
-                          }`}
-                        >
-                          <theme.icon className={`h-5 w-5 ${theme.active ? 'text-sky-600' : 'text-slate-400'}`} />
-                          <p className="mt-3 text-[13px] font-semibold text-slate-900">{theme.label}</p>
-                          <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{theme.description}</p>
-                          {theme.active ? <LuCheck className="absolute top-3 right-3 h-4 w-4 text-sky-600" /> : null}
-                        </button>
-                      ))}
+                      {themeOptions.map((theme) => {
+                        const selected = appearance.theme === theme.id
+                        return (
+                          <button
+                            key={theme.id}
+                            type="button"
+                            onClick={() => updateAppearance({ theme: theme.id })}
+                            aria-pressed={selected}
+                            className={`group relative rounded-2xl border p-4 text-left transition ${
+                              selected
+                                ? 'border-sky-400 bg-sky-50/80 shadow-sm'
+                                : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
+                            }`}
+                          >
+                            <span
+                              className={`flex h-9 w-9 items-center justify-center rounded-xl ${
+                                selected ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-500'
+                              }`}
+                            >
+                              <theme.icon className="h-4 w-4" aria-hidden="true" />
+                            </span>
+                            <span className="mt-3 flex items-center gap-2">
+                              <span className="text-[13px] font-semibold text-slate-900">{theme.label}</span>
+                              {selected ? <Badge tone="cyan">Active</Badge> : null}
+                            </span>
+                            <span className="mt-1 block text-[11px] leading-relaxed text-slate-500">
+                              {theme.description}
+                            </span>
+                            {selected ? (
+                              <LuCheck className="absolute top-3 right-3 h-4 w-4 text-sky-600" aria-hidden="true" />
+                            ) : null}
+                          </button>
+                        )
+                      })}
                     </div>
                   </div>
 
