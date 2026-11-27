@@ -36,7 +36,7 @@ export default function WhyDevUpdate() {
         <div className="mt-16 grid gap-8 lg:grid-cols-2 max-w-5xl mx-auto">
           {/* Traditional Tools Card */}
           <Reveal>
-            <div className="h-full rounded-3xl border border-slate-200/90 bg-[#F8FAFC] p-8 sm:p-10 shadow-2xs">
+            <div className="h-full rounded-3xl border border-slate-200/90 bg-canvas p-8 sm:p-10 shadow-2xs">
               <span className="text-[11px] font-bold tracking-wider uppercase text-slate-400">
                 TRADITIONAL DEPENDENCY TOOLS
               </span>

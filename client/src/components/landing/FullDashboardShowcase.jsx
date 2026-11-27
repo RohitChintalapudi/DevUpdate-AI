@@ -14,7 +14,7 @@ import Logo from '../common/Logo'
 
 export default function FullDashboardShowcase() {
   return (
-    <section className="relative overflow-hidden bg-[#F8FAFC] pt-24 pb-20 sm:pt-32 sm:pb-28">
+    <section className="relative overflow-hidden bg-canvas pt-24 pb-20 sm:pt-32 sm:pb-28">
       {/* Background soft ambient glow */}
       <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[550px] w-[950px] rounded-full bg-sky-200/25 blur-3xl" />
 

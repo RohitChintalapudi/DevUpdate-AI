@@ -94,7 +94,7 @@ export default function FaqSection() {
                         exit={{ height: 0, opacity: 0 }}
                         transition={{ duration: 0.2 }}
                       >
-                        <div className="border-t border-slate-100 p-5 pt-3 text-[14px] leading-relaxed text-slate-600 bg-[#F8FAFC]">
+                        <div className="border-t border-slate-100 p-5 pt-3 text-[14px] leading-relaxed text-slate-600 bg-canvas">
                           {faq.a}
                         </div>
                       </motion.div>

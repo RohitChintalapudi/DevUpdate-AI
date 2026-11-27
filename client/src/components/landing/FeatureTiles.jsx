@@ -5,7 +5,7 @@ import { SlackLogo, GitHubLogo, NpmLogo } from './BrandLogos'
 
 export default function FeatureTiles() {
   return (
-    <section className="relative overflow-hidden bg-[#F8FAFC] py-24 sm:py-32">
+    <section className="relative overflow-hidden bg-canvas py-24 sm:py-32">
       <div className="relative mx-auto max-w-7xl px-5 sm:px-8">
         {/* Centered Top Header */}
         <div className="mx-auto max-w-2xl text-center">

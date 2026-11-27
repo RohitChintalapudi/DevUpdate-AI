@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import Navbar from '../components/landing/Navbar'
 import Hero from '../components/landing/Hero'
 import MetricsGrid from '../components/landing/MetricsGrid'
@@ -21,26 +20,12 @@ import FaqSection from '../components/landing/FaqSection'
 import Footer from '../components/landing/Footer'
 
 export default function Landing() {
-  // Ensure the body background is crisp solid white on the landing page,
-  // preventing any dark canvas bleed-through
-  useEffect(() => {
-    const prevBg = document.body.style.backgroundColor
-    const prevColor = document.body.style.color
-    document.body.style.backgroundColor = '#FFFFFF'
-    document.body.style.color = '#0F172A'
-
-    return () => {
-      document.body.style.backgroundColor = prevBg
-      document.body.style.color = prevColor
-    }
-  }, [])
-
   return (
-    <div className="min-h-screen bg-white text-slate-900 selection:bg-slate-900 selection:text-white font-sans antialiased">
+    <div className="min-h-screen bg-canvas text-ink selection:bg-brandlight/30 selection:text-ink font-sans antialiased">
       {/* 1. Navigation */}
       <Navbar />
 
-      <main className="bg-white">
+      <main className="bg-canvas">
         {/* 2. Hero Section (Concentric Orbits, Official devicons-react logos & Social Proof) */}
         <Hero />
 

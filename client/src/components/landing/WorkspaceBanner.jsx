@@ -4,7 +4,7 @@ import Reveal from '../common/Reveal'
 
 export default function WorkspaceBanner() {
   return (
-    <section className="relative overflow-hidden bg-[#F8FAFC] py-24 sm:py-32">
+    <section className="relative overflow-hidden bg-canvas py-24 sm:py-32">
       {/* Background soft ambient glow */}
       <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[450px] w-[850px] rounded-full bg-sky-200/20 blur-3xl" />
 

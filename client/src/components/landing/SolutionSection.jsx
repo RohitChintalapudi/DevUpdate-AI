@@ -91,7 +91,7 @@ export default function SolutionSection() {
 
         {/* Supporting statement bar */}
         <Reveal delay={0.2}>
-          <div className="mt-14 mx-auto max-w-3xl rounded-2xl border border-slate-200/90 bg-[#F8FAFC] p-5 text-center">
+          <div className="mt-14 mx-auto max-w-3xl rounded-2xl border border-slate-200/90 bg-canvas p-5 text-center">
             <p className="text-[15px] font-bold text-slate-900 flex items-center justify-center gap-2 flex-wrap">
               <span className="text-sky-600 font-extrabold">Less manual research.</span>
               <span className="text-slate-300">•</span>

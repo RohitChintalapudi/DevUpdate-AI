@@ -57,7 +57,7 @@ const problems = [
 
 export default function ProblemSection() {
   return (
-    <section className="relative overflow-hidden bg-[#F8FAFC] py-24 sm:py-32">
+    <section className="relative overflow-hidden bg-canvas py-24 sm:py-32">
       <div className="relative mx-auto max-w-7xl px-5 sm:px-8">
         <SectionHeading
           eyebrow="THE PROBLEM"

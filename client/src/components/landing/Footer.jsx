@@ -48,7 +48,7 @@ export default function Footer() {
   const [modalTitle, setModalTitle] = useState('')
 
   return (
-    <footer className="relative border-t border-slate-200/80 bg-[#F1F5F9]">
+    <footer className="relative border-t border-slate-200/80 bg-surface">
       <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8">
         <div className="grid gap-10 md:grid-cols-[1.6fr_1fr_1fr_1fr_1fr]">
           {/* Brand Info */}

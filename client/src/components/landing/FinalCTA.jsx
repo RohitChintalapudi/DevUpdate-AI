@@ -4,7 +4,7 @@ import Reveal from '../common/Reveal'
 
 export default function FinalCTA() {
   return (
-    <section className="relative overflow-hidden bg-[#F8FAFC] py-24 sm:py-32">
+    <section className="relative overflow-hidden bg-canvas py-24 sm:py-32">
       <div className="mx-auto max-w-5xl px-5 sm:px-8">
         <Reveal>
           <div className="relative overflow-hidden rounded-[36px] border border-slate-200 bg-white px-6 py-16 text-center sm:px-14 shadow-md">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { LuSparkles } from 'react-icons/lu'
 import {
@@ -87,21 +87,8 @@ const authOrbitBadges = [
 export default function AuthLayout({ title, description, children, footer, badge }) {
   const [activeTooltip, setActiveTooltip] = useState(null)
 
-  // Clean surface background to match landing aesthetics
-  useEffect(() => {
-    const prevBg = document.body.style.backgroundColor
-    const prevColor = document.body.style.color
-    document.body.style.backgroundColor = '#F8FAFC'
-    document.body.style.color = '#0F172A'
-
-    return () => {
-      document.body.style.backgroundColor = prevBg
-      document.body.style.color = prevColor
-    }
-  }, [])
-
   return (
-    <div className="relative min-h-screen w-full bg-[#F8FAFC] text-slate-900 font-sans antialiased selection:bg-slate-900 selection:text-white flex flex-col justify-center items-center px-4 pt-24 pb-8 sm:pt-28">
+    <div className="relative min-h-screen w-full bg-canvas text-ink font-sans antialiased selection:bg-brandlight/30 selection:text-ink flex flex-col justify-center items-center px-4 pt-24 pb-8 sm:pt-28">
       {/* =========================================================
        * 1. Top Navbar (Identical to landing page; logo redirects to '/')
        * ========================================================= */}
