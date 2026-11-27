@@ -54,6 +54,27 @@
   --color-accent: #e11d48;
 }
 
+/* ---------- Public daylight surface ----------
+   Landing, authentication, password reset and 404 always use the daylight
+   palette, even when midnight is stored for the authenticated dashboard or the
+   device reports a dark system preference. Explicit tokens keep native form
+   controls and focus rings light as well. */
+[data-surface='public'] {
+  color-scheme: light;
+
+  --color-canvas: #f8fafc;
+  --color-surface: #ffffff;
+  --color-card: #ffffff;
+  --color-elevated: #ffffff;
+  --color-brand: #0f172a;
+  --color-brandlight: #0284c7;
+  --color-accent: #0284c7;
+  --color-ink: #0f172a;
+  --color-subtle: #475569;
+  --color-muted: #64748b;
+  --color-line: rgba(226, 232, 240, 0.9);
+}
+
 /* ---------- Midnight theme ----------
    Midnight is scoped to the authenticated dashboard with data-surface="app".
    Public pages (landing, login, signup, password reset, 404) intentionally stay

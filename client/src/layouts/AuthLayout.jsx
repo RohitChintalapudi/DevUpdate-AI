@@ -88,7 +88,7 @@ export default function AuthLayout({ title, description, children, footer, badge
   const [activeTooltip, setActiveTooltip] = useState(null)
 
   return (
-    <div className="relative min-h-screen w-full bg-canvas text-ink font-sans antialiased selection:bg-brandlight/30 selection:text-ink flex flex-col justify-center items-center px-4 pt-24 pb-8 sm:pt-28">
+    <div data-surface="public" className="relative min-h-screen w-full bg-canvas text-ink font-sans antialiased selection:bg-brandlight/30 selection:text-ink flex flex-col justify-center items-center px-4 pt-24 pb-8 sm:pt-28">
       {/* =========================================================
        * 1. Top Navbar (Identical to landing page; logo redirects to '/')
        * ========================================================= */}

@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => {
       include: ['devicons-react', 'react-icons/lu', 'framer-motion'],
     },
     server: {
-      port: 5173,
+      port: Number(env.VITE_PORT) || 5173,
       host: true,
       proxy: {
         '/api': {

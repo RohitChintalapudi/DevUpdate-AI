@@ -21,7 +21,7 @@ import Footer from '../components/landing/Footer'
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-canvas text-ink selection:bg-brandlight/30 selection:text-ink font-sans antialiased">
+    <div data-surface="public" className="min-h-screen bg-canvas text-ink selection:bg-brandlight/30 selection:text-ink font-sans antialiased">
       {/* 1. Navigation */}
       <Navbar />
 
