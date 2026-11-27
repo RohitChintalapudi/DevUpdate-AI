@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
+  LuArrowUpRight,
   LuCalendarDays,
   LuCheck,
   LuCopy,
@@ -15,20 +16,23 @@ import {
   LuSun,
   LuUserRound,
 } from 'react-icons/lu'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import Badge from '../../components/common/Badge'
 import Button from '../../components/common/Button'
 import Input from '../../components/common/Input'
 import PageHeader from '../../components/common/PageHeader'
+import Skeleton from '../../components/common/Skeleton'
 import Toast from '../../components/common/Toast'
+import { NOTIFICATION_META } from '../../components/notifications/notificationMeta'
 import SettingRow from '../../components/settings/SettingRow'
 import SettingSwitch from '../../components/settings/SettingSwitch'
 import SettingsNav from '../../components/settings/SettingsNav'
 import SettingsSection from '../../components/settings/SettingsSection'
 import { isSettingsTab } from '../../constants/settingsTabs'
 import { useAuth } from '../../context/AuthContext'
-import { getErrorMessage } from '../../services/api'
+import { getErrorMessage, notificationsApi, repositoriesApi } from '../../services/api'
 import { ACCENTS, readAppearance, saveAppearance } from '../../utils/appearanceSettings'
+import { notifyNotificationsChanged } from '../../utils/notificationEvents'
 import { formatDate } from '../../utils/updateHelpers'
 
 const themeOptions = [
@@ -46,7 +50,11 @@ export default function Settings() {
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
   const [copied, setCopied] = useState(false)
-  const [notifications, setNotifications] = useState({ updates: true, security: true, weekly: false })
+  const [preferences, setPreferences] = useState({ inApp: true, email: false, types: {}, mutedRepositories: [] })
+  const [repositories, setRepositories] = useState([])
+  const [preferencesLoading, setPreferencesLoading] = useState(false)
+  const [preferencesDirty, setPreferencesDirty] = useState(false)
+  const [preferencesSaving, setPreferencesSaving] = useState(false)
   const [appearance, setAppearance] = useState(() => readAppearance())
 
   useEffect(() => {
@@ -61,6 +69,29 @@ export default function Settings() {
     return () => clearTimeout(timer)
   }, [copied])
 
+  useEffect(() => {
+    let active = true
+    const loadPreferences = async () => {
+      await Promise.resolve()
+      if (active) setPreferencesLoading(true)
+      try {
+        const [repoResult, prefResult] = await Promise.all([
+          repositoriesApi.list({ limit: 50 }),
+          notificationsApi.preferences(),
+        ])
+        if (!active) return
+        setRepositories(repoResult.repositories || [])
+        if (prefResult.preferences) setPreferences(prefResult.preferences)
+      } catch (error) {
+        if (active) setToast({ type: 'error', title: 'Could not load preferences', message: getErrorMessage(error) })
+      } finally {
+        if (active) setPreferencesLoading(false)
+      }
+    }
+    loadPreferences()
+    return () => { active = false }
+  }, [])
+
   const selectTab = (id) => {
     setTab(id)
     setToast(null)
@@ -69,6 +100,37 @@ export default function Settings() {
 
   const updateAppearance = (patch) => {
     setAppearance((current) => saveAppearance({ ...current, ...patch }))
+  }
+
+  const updatePreference = (patch) => {
+    setPreferences((current) => ({ ...current, ...patch }))
+    setPreferencesDirty(true)
+  }
+
+  const toggleNotificationType = (type, enabled) => {
+    updatePreference({ types: { ...(preferences.types || {}), [type]: enabled } })
+  }
+
+  const toggleMutedRepository = (id, enabled) => {
+    const values = new Set((preferences.mutedRepositories || []).map(String))
+    if (enabled) values.add(String(id))
+    else values.delete(String(id))
+    updatePreference({ mutedRepositories: [...values] })
+  }
+
+  const saveNotificationPreferences = async () => {
+    setPreferencesSaving(true)
+    try {
+      const result = await notificationsApi.updatePreferences(preferences)
+      setPreferences(result.preferences)
+      setPreferencesDirty(false)
+      notifyNotificationsChanged()
+      setToast({ type: 'success', title: 'Preferences saved', message: 'Notification delivery is up to date.' })
+    } catch (error) {
+      setToast({ type: 'error', title: 'Could not save preferences', message: getErrorMessage(error) })
+    } finally {
+      setPreferencesSaving(false)
+    }
   }
 
   const handleSave = async (event) => {
@@ -295,32 +357,125 @@ export default function Settings() {
               <SettingsSection
                 eyebrow="Delivery"
                 title="Notifications"
-                description="Choose which events matter to you. Full preferences live in the notification inbox."
+                description="These preferences are stored on the server and apply to every device you sign in from."
+                actions={
+                  <Badge tone={preferencesDirty ? 'warning' : 'success'} dot>
+                    {preferencesDirty ? 'Unsaved changes' : 'Saved'}
+                  </Badge>
+                }
               >
-                <div className="space-y-2">
-                  {[
-                    { key: 'updates', label: 'New dependency updates', detail: 'Alerts when a tracked package has a new version.' },
-                    { key: 'security', label: 'Security advisories', detail: 'Prioritise advisories affecting your projects.' },
-                    { key: 'weekly', label: 'Weekly health digest', detail: 'A summary of dependency health across workspaces.' },
-                  ].map((item) => (
-                    <button
-                      key={item.key}
-                      type="button"
-                      role="switch"
-                      aria-checked={notifications[item.key]}
-                      onClick={() => setNotifications({ ...notifications, [item.key]: !notifications[item.key] })}
-                      className="flex w-full items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-300"
-                    >
-                      <span>
-                        <span className="block text-[13px] font-semibold text-slate-900">{item.label}</span>
-                        <span className="mt-0.5 block text-[11px] text-slate-500">{item.detail}</span>
-                      </span>
-                      <span className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${notifications[item.key] ? 'bg-sky-600' : 'bg-slate-200'}`}>
-                        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${notifications[item.key] ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                {preferencesLoading ? (
+                  <div className="space-y-3">
+                    <Skeleton className="h-16" />
+                    <Skeleton className="h-16" />
+                    <Skeleton className="h-24" />
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <p className="label-caps">Delivery</p>
+                      <SettingSwitch
+                        label="In-app notifications"
+                        description="Store events in the notification inbox and show the unread badge."
+                        checked={preferences.inApp}
+                        onChange={(value) => updatePreference({ inApp: value })}
+                      />
+                      <SettingSwitch
+                        label="Email notifications"
+                        description="Recorded for future delivery; email is not configured in this deployment."
+                        badge="Recorded only"
+                        checked={preferences.email}
+                        onChange={(value) => updatePreference({ email: value })}
+                      />
+                    </div>
+
+                    <div className="border-t border-slate-100 pt-6">
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="label-caps">Event types</p>
+                          <p className="mt-1 text-[11px] text-slate-500">Disabled events stop creating new inbox alerts.</p>
+                        </div>
+                        <Badge tone="neutral">
+                          {Object.entries(NOTIFICATION_META).filter(([type]) => preferences.types?.[type] !== false).length} enabled
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(NOTIFICATION_META).map(([type, meta]) => {
+                          const enabled = preferences.types?.[type] !== false
+                          return (
+                            <button
+                              key={type}
+                              type="button"
+                              onClick={() => toggleNotificationType(type, !enabled)}
+                              aria-pressed={enabled}
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${
+                                enabled
+                                  ? 'border-sky-200 bg-sky-50 text-sky-700'
+                                  : 'border-slate-200 bg-white text-slate-400 hover:text-slate-600'
+                              }`}
+                            >
+                              {enabled ? <LuCheck className="h-3 w-3" aria-hidden="true" /> : null}
+                              {meta.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="border-t border-slate-100 pt-6">
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="label-caps">Muted repositories</p>
+                          <p className="mt-1 text-[11px] text-slate-500">Existing alerts stay visible when a repository is muted.</p>
+                        </div>
+                        <Badge tone="neutral">{(preferences.mutedRepositories || []).length} muted</Badge>
+                      </div>
+                      {repositories.length ? (
+                        <div className="flex flex-wrap gap-2">
+                          {repositories.map((repo) => {
+                            const muted = (preferences.mutedRepositories || []).map(String).includes(String(repo._id))
+                            return (
+                              <button
+                                key={String(repo._id)}
+                                type="button"
+                                onClick={() => toggleMutedRepository(repo._id, !muted)}
+                                aria-pressed={muted}
+                                className={`rounded-full border px-3 py-1.5 text-[11px] font-medium transition ${
+                                  muted
+                                    ? 'border-amber-200 bg-amber-50 text-amber-700'
+                                    : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                                }`}
+                              >
+                                {muted ? 'Muted · ' : ''}
+                                {repo.fullName || repo.name}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-500">Connect GitHub to mute events per repository.</p>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5">
+                      <Link
+                        to="/dashboard/notifications"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-700 transition hover:text-sky-900"
+                      >
+                        Open notification inbox
+                        <LuArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                      </Link>
+                      <Button
+                        leftIcon={LuSave}
+                        loading={preferencesSaving}
+                        disabled={!preferencesDirty}
+                        onClick={saveNotificationPreferences}
+                      >
+                        Save preferences
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </SettingsSection>
             ) : null}
 
