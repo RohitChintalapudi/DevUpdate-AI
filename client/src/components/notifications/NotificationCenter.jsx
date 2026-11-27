@@ -10,7 +10,7 @@ import { NOTIFICATIONS_CHANGED_EVENT, notifyNotificationsChanged } from '../../u
 const REFRESH_MS = 60_000
 
 const iconButton =
-  'inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-800 disabled:cursor-not-allowed disabled:opacity-40'
+  'inline-flex h-7 w-7 items-center justify-center rounded-lg text-muted transition hover:bg-white/[0.04] hover:text-ink disabled:cursor-not-allowed disabled:opacity-40'
 
 export default function NotificationCenter() {
   const navigate = useNavigate()
@@ -120,13 +120,13 @@ export default function NotificationCenter() {
         aria-expanded={open}
         className={`relative flex h-9 w-9 items-center justify-center rounded-xl border transition ${
           open
-            ? 'border-sky-300 bg-sky-50 text-sky-700'
-            : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950'
+            ? 'border-sky-400 bg-sky-50 text-sky-700'
+            : 'border-line bg-elevated text-muted hover:border-brandlight/40 hover:bg-white/[0.04] hover:text-ink'
         }`}
       >
         <LuBell className="h-[17px] w-[17px]" aria-hidden="true" />
         {unread ? (
-          <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-sky-600 px-1 text-[9px] font-bold text-white ring-2 ring-white">
+          <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-sky-600 px-1 text-[9px] font-bold text-white ring-2 ring-card">
             {unread > 99 ? '99+' : unread}
           </span>
         ) : null}
@@ -142,16 +142,16 @@ export default function NotificationCenter() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ duration: 0.16 }}
-            className="absolute top-[calc(100%+10px)] right-0 z-50 w-[min(92vw,390px)] origin-top-right overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_20px_50px_-12px_rgba(15,23,42,0.25)]"
+            className="absolute top-[calc(100%+10px)] right-0 z-50 w-[min(92vw,390px)] origin-top-right overflow-hidden rounded-2xl border border-line bg-elevated shadow-[0_24px_60px_-20px_rgba(0,0,0,0.55)]"
           >
-            <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+            <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
                   <LuBell className="h-4 w-4" aria-hidden="true" />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-[13px] font-semibold text-slate-950">Notifications</p>
-                  <p className="truncate text-[11px] text-slate-500">
+                  <p className="text-[13px] font-semibold text-ink">Notifications</p>
+                  <p className="truncate text-[11px] text-muted">
                     {unread ? `${unread} unread event${unread === 1 ? '' : 's'}` : 'All caught up'}
                   </p>
                 </div>
@@ -186,21 +186,21 @@ export default function NotificationCenter() {
               </div>
             ) : (
               <div className="px-6 py-10 text-center">
-                <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
+                <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-muted">
                   <LuInbox className="h-5 w-5" aria-hidden="true" />
                 </span>
-                <p className="mt-3 text-[13px] font-semibold text-slate-800">Nothing new right now</p>
-                <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                <p className="mt-3 text-[13px] font-semibold text-ink">Nothing new right now</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-muted">
                   Scan, advisory and AI events will show up here.
                 </p>
               </div>
             )}
 
-            <div className="border-t border-slate-100 p-2">
+            <div className="border-t border-line p-2">
               <button
                 type="button"
                 onClick={openAll}
-                className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+                className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-[13px] font-semibold text-subtle transition hover:bg-white/[0.04] hover:text-ink"
               >
                 View all notifications
                 <LuArrowRight className="h-4 w-4" aria-hidden="true" />

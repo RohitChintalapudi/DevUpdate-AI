@@ -556,7 +556,7 @@ export default function RepositoryUpdateDetails() {
 
       {/* Auto-updating Dependency Intelligence Banner */}
       {autoUpdating && (
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-sky-200/90 bg-gradient-to-r from-sky-50 via-blue-50/50 to-white p-4.5 shadow-xs">
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-sky-200/90 bg-gradient-to-r from-sky-50 via-card/80 to-card p-4.5 shadow-xs">
           <div className="flex items-center gap-3.5">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-950 text-white shadow-sm relative">
               <LuRefreshCw className="h-5 w-5 animate-spin text-sky-400" />
@@ -752,7 +752,7 @@ export default function RepositoryUpdateDetails() {
 
                     {/* Network high-speed beam sweep */}
                     {!isCompleted && (
-                      <div className="absolute inset-0 w-32 bg-gradient-to-r from-transparent via-white/80 to-transparent animate-network-beam pointer-events-none" />
+                      <div className="absolute inset-0 w-32 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent animate-network-beam pointer-events-none" />
                     )}
 
                     {/* Glowing Leading Head Node */}
@@ -856,8 +856,8 @@ export default function RepositoryUpdateDetails() {
             transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
             className={`mb-6 rounded-2xl border p-5 shadow-sm relative overflow-hidden ${
               isCompleted
-                ? 'border-emerald-300/90 bg-gradient-to-br from-emerald-50/95 via-teal-50/50 to-emerald-50/90'
-                : 'border-amber-300/80 bg-gradient-to-br from-amber-50/95 via-orange-50/50 to-amber-50/90'
+                ? 'border-emerald-200/60 bg-gradient-to-br from-emerald-50/95 via-card to-emerald-50/90'
+                : 'border-amber-200/60 bg-gradient-to-br from-amber-50/95 via-card to-amber-50/90'
             }`}
           >
             {/* Subtle animated network grid background */}
@@ -998,7 +998,7 @@ export default function RepositoryUpdateDetails() {
 
                     {/* High-speed Network Light Beam Sweep */}
                     {!isCompleted && (
-                      <div className="absolute inset-0 w-28 bg-gradient-to-r from-transparent via-white/80 to-transparent animate-network-beam pointer-events-none" />
+                      <div className="absolute inset-0 w-28 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent animate-network-beam pointer-events-none" />
                     )}
 
                     {/* Glowing Leading Head Node */}

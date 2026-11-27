@@ -21,7 +21,7 @@ export default function DashboardLayout() {
   }, [collapsed])
 
   return (
-    <div className="min-h-screen bg-canvas text-ink font-sans antialiased">
+    <div data-surface="app" className="min-h-screen bg-canvas text-ink font-sans antialiased">
       <div className="pointer-events-none fixed inset-0 grid-bg opacity-70" />
       <LogoutConfirmModal
         open={logoutConfirmOpen}

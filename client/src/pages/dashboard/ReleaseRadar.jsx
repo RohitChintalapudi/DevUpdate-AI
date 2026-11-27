@@ -502,8 +502,8 @@ export default function ReleaseRadar() {
                           </span>
                         )}
 
-                        <span className="inline-flex items-center gap-1 rounded-md bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-700 border border-purple-200">
-                          <LuFlame className="h-3 w-3 text-purple-600" />
+                        <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700 border border-violet-200">
+                          <LuFlame className="h-3 w-3 text-violet-600" />
                           Firecrawl verified
                         </span>
                       </div>

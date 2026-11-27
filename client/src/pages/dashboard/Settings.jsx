@@ -32,9 +32,10 @@ import SettingSwitch from '../../components/settings/SettingSwitch'
 import SettingsNav from '../../components/settings/SettingsNav'
 import SettingsSection from '../../components/settings/SettingsSection'
 import { isSettingsTab } from '../../constants/settingsTabs'
+import { useAppearance } from '../../context/AppearanceContext'
 import { useAuth } from '../../context/AuthContext'
 import { getErrorMessage, githubApi, notificationsApi, repositoriesApi } from '../../services/api'
-import { ACCENTS, THEMES, readAppearance, saveAppearance } from '../../utils/appearanceSettings'
+import { ACCENTS, THEMES } from '../../utils/appearanceSettings'
 import { notifyNotificationsChanged } from '../../utils/notificationEvents'
 import { formatDate } from '../../utils/updateHelpers'
 
@@ -43,6 +44,7 @@ const themeOptions = THEMES.map((theme) => ({ ...theme, icon: themeIcons[theme.i
 
 export default function Settings() {
   const navigate = useNavigate()
+  const { appearance, updateAppearance } = useAppearance()
   const { user, updateProfile, logout } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const requested = searchParams.get('tab')
@@ -56,7 +58,6 @@ export default function Settings() {
   const [preferencesLoading, setPreferencesLoading] = useState(false)
   const [preferencesDirty, setPreferencesDirty] = useState(false)
   const [preferencesSaving, setPreferencesSaving] = useState(false)
-  const [appearance, setAppearance] = useState(() => readAppearance())
   const [githubStatus, setGithubStatus] = useState(null)
   const [githubLoading, setGithubLoading] = useState(false)
   const [githubRefreshKey, setGithubRefreshKey] = useState(0)
@@ -122,10 +123,6 @@ export default function Settings() {
     setTab(id)
     setToast(null)
     setSearchParams(id === 'profile' ? {} : { tab: id }, { replace: true })
-  }
-
-  const updateAppearance = (patch) => {
-    setAppearance((current) => saveAppearance({ ...current, ...patch }))
   }
 
   const updatePreference = (patch) => {

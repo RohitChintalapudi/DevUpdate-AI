@@ -313,7 +313,7 @@ export default function Notifications() {
       </PageHeader>
 
       {showPreferences ? (
-        <Card className="mb-6 border-sky-200/80 bg-gradient-to-br from-sky-50/40 via-white to-white">
+        <Card className="mb-6 border-sky-200/80 bg-gradient-to-br from-sky-50/40 via-card to-card">
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">

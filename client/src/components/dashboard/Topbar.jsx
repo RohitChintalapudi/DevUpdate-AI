@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { LuChevronDown, LuChevronRight, LuLogOut, LuMenu, LuSearch, LuSettings, LuUserRound } from 'react-icons/lu'
+import { LuChevronDown, LuChevronRight, LuLogOut, LuMenu, LuMoon, LuSearch, LuSettings, LuSun, LuUserRound } from 'react-icons/lu'
 import { useLocation, useNavigate } from 'react-router-dom'
 import Dropdown from '../common/Dropdown'
 import NotificationCenter from '../notifications/NotificationCenter'
+import { useAppearance } from '../../context/AppearanceContext'
 import { useAuth } from '../../context/AuthContext'
 
 const routeNames = {
@@ -27,6 +28,7 @@ const routeNames = {
 export default function Topbar({ onOpenMobileNav, onOpenLogout }) {
   const location = useLocation()
   const navigate = useNavigate()
+  const { appearance, updateAppearance } = useAppearance()
   const { user, logout } = useAuth()
   const [search, setSearch] = useState('')
   const path = location.pathname
@@ -55,20 +57,20 @@ export default function Topbar({ onOpenMobileNav, onOpenLogout }) {
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-[72px] items-center gap-3 border-b border-slate-200/80 bg-white/85 px-4 backdrop-blur-xl sm:px-6">
+    <header className="sticky top-0 z-30 flex h-[72px] items-center gap-3 border-b border-line bg-surface/85 px-4 backdrop-blur-xl sm:px-6">
       <button
         type="button"
         onClick={onOpenMobileNav}
         aria-label="Open navigation"
-        className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 lg:hidden"
+        className="rounded-lg p-2 text-muted transition hover:bg-white/[0.04] hover:text-ink lg:hidden"
       >
         <LuMenu className="h-5 w-5" />
       </button>
 
       <div className="hidden min-w-0 items-center gap-2 text-[13px] md:flex">
-        <span className="text-slate-400">Workspace</span>
-        <LuChevronRight className="h-3.5 w-3.5 text-slate-400/60" />
-        <span className="truncate font-semibold text-slate-900">{current}</span>
+        <span className="text-muted">Workspace</span>
+        <LuChevronRight className="h-3.5 w-3.5 text-muted/60" />
+        <span className="truncate font-semibold text-ink">{current}</span>
       </div>
 
       <form
@@ -78,35 +80,49 @@ export default function Topbar({ onOpenMobileNav, onOpenLogout }) {
           navigate(`/dashboard/dependencies?search=${encodeURIComponent(search.trim())}`)
         }}
       >
-        <LuSearch className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <LuSearch className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted" />
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search packages..."
           aria-label="Search dependencies"
-          className="h-9 w-full rounded-xl border border-slate-200/90 bg-slate-50 pr-3 pl-9 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:bg-white focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5"
+          className="h-9 w-full rounded-xl border border-line bg-elevated pr-3 pl-9 text-[13px] text-ink outline-none transition placeholder:text-muted hover:border-brandlight/40 focus:bg-card focus:border-brandlight focus:ring-4 focus:ring-brandlight/10"
         />
       </form>
 
       <div className="ml-auto flex items-center gap-1.5 sm:ml-0">
+        <button
+          type="button"
+          onClick={() => updateAppearance({ theme: appearance.theme === 'midnight' ? 'daylight' : 'midnight' })}
+          aria-label={appearance.theme === 'midnight' ? 'Switch to daylight theme' : 'Switch to midnight theme'}
+          title={appearance.theme === 'midnight' ? 'Daylight theme' : 'Midnight theme'}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-elevated text-muted transition hover:border-brandlight/40 hover:bg-white/[0.04] hover:text-ink"
+        >
+          {appearance.theme === 'midnight' ? (
+            <LuSun className="h-4 w-4" aria-hidden="true" />
+          ) : (
+            <LuMoon className="h-4 w-4" aria-hidden="true" />
+          )}
+        </button>
+
         <NotificationCenter />
 
-        <div className="mx-1 hidden h-6 w-px bg-slate-200 sm:block" />
+        <div className="mx-1 hidden h-6 w-px bg-line sm:block" />
 
         <Dropdown
           trigger={
             <button
               type="button"
-              className="flex items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50 p-1 pr-2 transition hover:bg-slate-100 hover:border-slate-300"
+              className="flex items-center gap-2 rounded-xl border border-line bg-elevated p-1 pr-2 transition hover:border-brandlight/40 hover:bg-white/[0.04]"
               aria-label="Open profile menu"
             >
               <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-950 text-[11px] font-bold text-white shadow-2xs">
                 {initials}
               </span>
-              <span className="hidden max-w-28 truncate text-[13px] font-semibold text-slate-900 sm:block">
+              <span className="hidden max-w-28 truncate text-[13px] font-semibold text-ink sm:block">
                 {user?.name?.split(' ')[0] || 'Developer'}
               </span>
-              <LuChevronDown className="hidden h-3.5 w-3.5 text-slate-400 sm:block" />
+              <LuChevronDown className="hidden h-3.5 w-3.5 text-muted sm:block" />
             </button>
           }
           items={[

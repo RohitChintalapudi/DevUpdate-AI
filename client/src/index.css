@@ -55,11 +55,12 @@
 }
 
 /* ---------- Midnight theme ----------
-   The app uses Tailwind's slate palette for most surfaces. In midnight we
-   remap those variables to recessed navy shades, then brighten the text
-   utilities independently so existing components stay legible without losing
-   their visual hierarchy. */
-[data-theme='midnight'] {
+   Midnight is scoped to the authenticated dashboard with data-surface="app".
+   Public pages (landing, login, signup, password reset, 404) intentionally stay
+   in daylight even when a midnight preference is stored. The app uses Tailwind's
+   slate palette for most surfaces, so we remap those variables to recessed navy
+   shades and brighten text utilities independently to preserve hierarchy. */
+[data-theme='midnight'] [data-surface='app'] {
   color-scheme: dark;
 
   --color-canvas: #070b14;
@@ -97,46 +98,101 @@
   --color-sky-50: #0a1a2b;
   --color-sky-100: #102b44;
   --color-sky-200: #164e63;
+  --color-sky-300: #7dd3fc;
+  --color-sky-400: #38bdf8;
   --color-sky-500: #38bdf8;
   --color-sky-600: #0284c7;
   --color-sky-700: #7dd3fc;
+  --color-sky-800: #bae6fd;
+  --color-sky-900: #e0f2fe;
+
+  /* Alias palettes that are used for badges and gradients. Without these,
+     blue/purple/teal/orange utilities keep their near-white daylight values. */
+  --color-blue-50: #0a1a2b;
+  --color-blue-100: #102b44;
+  --color-blue-200: #164e63;
+  --color-blue-400: #38bdf8;
+  --color-blue-500: #38bdf8;
+  --color-blue-600: #0284c7;
+  --color-blue-700: #7dd3fc;
+
+  --color-purple-50: #1a1030;
+  --color-purple-100: #281c47;
+  --color-purple-200: #3d2c68;
+  --color-purple-300: #a78bfa;
+  --color-purple-400: #a78bfa;
+  --color-purple-500: #a78bfa;
+  --color-purple-600: #c4b5fd;
+  --color-purple-700: #ddd6fe;
 
   --color-violet-50: #1a1030;
   --color-violet-100: #281c47;
   --color-violet-200: #3d2c68;
+  --color-violet-300: #a78bfa;
+  --color-violet-400: #a78bfa;
   --color-violet-500: #a78bfa;
+  --color-violet-600: #c4b5fd;
   --color-violet-700: #c4b5fd;
   --color-violet-800: #ddd6fe;
 
   --color-indigo-50: #111a3a;
   --color-indigo-100: #1a2453;
   --color-indigo-200: #273371;
+  --color-indigo-300: #818cf8;
+  --color-indigo-400: #818cf8;
   --color-indigo-500: #818cf8;
+  --color-indigo-600: #a5b4fc;
   --color-indigo-700: #a5b4fc;
 
   --color-emerald-50: #052e25;
   --color-emerald-100: #063b2f;
   --color-emerald-200: #065f46;
+  --color-emerald-300: #34d399;
+  --color-emerald-400: #34d399;
   --color-emerald-500: #34d399;
+  --color-emerald-600: #6ee7b7;
   --color-emerald-700: #6ee7b7;
   --color-emerald-800: #a7f3d0;
+  --color-emerald-900: #d1fae5;
+
+  --color-teal-50: #052e25;
+  --color-teal-100: #063b2f;
+  --color-teal-200: #065f46;
+  --color-teal-400: #2dd4bf;
+  --color-teal-500: #2dd4bf;
+  --color-teal-700: #5eead4;
 
   --color-amber-50: #2b1c07;
   --color-amber-100: #3a2608;
   --color-amber-200: #5a3a0a;
+  --color-amber-300: #fbbf24;
+  --color-amber-400: #fbbf24;
   --color-amber-500: #fbbf24;
+  --color-amber-600: #fcd34d;
   --color-amber-700: #fcd34d;
   --color-amber-800: #fde68a;
+  --color-amber-900: #fef3c7;
+
+  --color-orange-50: #2b1c07;
+  --color-orange-100: #3a2608;
+  --color-orange-200: #5a3a0a;
+  --color-orange-300: #fb923c;
+  --color-orange-400: #fb923c;
+  --color-orange-500: #fb923c;
+  --color-orange-700: #fdba74;
 
   --color-rose-50: #2a0d16;
   --color-rose-100: #3d101d;
   --color-rose-200: #5c1628;
+  --color-rose-300: #fb7185;
+  --color-rose-400: #fb7185;
   --color-rose-500: #fb7185;
   --color-rose-700: #fda4af;
   --color-rose-800: #fecdd3;
+  --color-rose-900: #ffe4e6;
 }
 
-[data-theme='midnight'][data-accent='violet'] {
+[data-theme='midnight'][data-accent='violet'] [data-surface='app'] {
   --color-sky-50: #1a1030;
   --color-sky-100: #281c47;
   --color-sky-500: #a78bfa;
@@ -146,7 +202,7 @@
   --color-accent: #a78bfa;
 }
 
-[data-theme='midnight'][data-accent='emerald'] {
+[data-theme='midnight'][data-accent='emerald'] [data-surface='app'] {
   --color-sky-50: #052e25;
   --color-sky-100: #063b2f;
   --color-sky-500: #34d399;
@@ -156,7 +212,7 @@
   --color-accent: #34d399;
 }
 
-[data-theme='midnight'][data-accent='rose'] {
+[data-theme='midnight'][data-accent='rose'] [data-surface='app'] {
   --color-sky-50: #2a0d16;
   --color-sky-100: #3d101d;
   --color-sky-500: #fb7185;
@@ -167,26 +223,74 @@
 }
 
 /* Solid white surfaces become elevated navy; white overlays stay white. */
-[data-theme='midnight'] .bg-white {
+[data-theme='midnight'] [data-surface='app'] .bg-white {
   background-color: var(--color-card);
 }
 
-[data-theme='midnight'] .hover\:bg-white:hover,
-[data-theme='midnight'] .focus\:bg-white:focus {
+[data-theme='midnight'] [data-surface='app'] .hover\:bg-white:hover,
+[data-theme='midnight'] [data-surface='app'] .focus\:bg-white:focus {
   background-color: var(--color-elevated);
 }
 
+/* High-opacity white utilities are opaque cards in daylight. In midnight they
+   need a navy tint or dashboard chrome flashes white. Very low-alpha white
+   overlays (white/[0.04], etc.) are left intact as subtle highlights. */
+[data-theme='midnight'] [data-surface='app'] .bg-white\/95 {
+  background-color: rgba(13, 20, 34, 0.95);
+}
+[data-theme='midnight'] [data-surface='app'] .bg-white\/90 {
+  background-color: rgba(13, 20, 34, 0.9);
+}
+[data-theme='midnight'] [data-surface='app'] .bg-white\/85 {
+  background-color: rgba(13, 20, 34, 0.88);
+}
+[data-theme='midnight'] [data-surface='app'] .bg-white\/80 {
+  background-color: rgba(13, 20, 34, 0.8);
+}
+[data-theme='midnight'] [data-surface='app'] .bg-white\/70 {
+  background-color: rgba(13, 20, 34, 0.72);
+}
+[data-theme='midnight'] [data-surface='app'] .bg-white\/50 {
+  background-color: rgba(13, 20, 34, 0.55);
+}
+[data-theme='midnight'] [data-surface='app'] :is(
+    .border-white\/80,
+    .border-white\/70,
+    .border-white\/60
+  ) {
+  border-color: var(--color-line);
+}
+
+/* Gradient stops are custom properties, so the background-color overrides above
+   do not touch them. Remap literal white stops to the navy card surface and
+   dim decorative white beams to a subtle glow. */
+[data-theme='midnight'] [data-surface='app'] .from-white {
+  --tw-gradient-from: var(--color-card);
+}
+[data-theme='midnight'] [data-surface='app'] .via-white {
+  --tw-gradient-via: var(--color-card);
+}
+[data-theme='midnight'] [data-surface='app'] .to-white {
+  --tw-gradient-to: var(--color-card);
+}
+[data-theme='midnight'] [data-surface='app'] .via-white\/80 {
+  --tw-gradient-via: rgba(255, 255, 255, 0.08);
+}
+[data-theme='midnight'] [data-surface='app'] .via-white\/50 {
+  --tw-gradient-via: rgba(255, 255, 255, 0.06);
+}
+
 /* Primary buttons and active navigation use the selected accent in midnight. */
-[data-theme='midnight'] .bg-slate-950 {
+[data-theme='midnight'] [data-surface='app'] .bg-slate-950 {
   background-color: var(--color-sky-600);
 }
 
-[data-theme='midnight'] .hover\:bg-slate-800:hover {
+[data-theme='midnight'] [data-surface='app'] .hover\:bg-slate-800:hover {
   background-color: var(--color-sky-700);
 }
 
 /* Text utilities are inverted independently from their matching backgrounds. */
-[data-theme='midnight'] :is(
+[data-theme='midnight'] [data-surface='app'] :is(
     .text-slate-50,
     .text-slate-100,
     .text-slate-200,
@@ -216,7 +320,7 @@
   color: #eef3fb;
 }
 
-[data-theme='midnight'] :is(
+[data-theme='midnight'] [data-surface='app'] :is(
     .group:hover .group-hover\:text-slate-50,
     .group:hover .group-hover\:text-slate-100,
     .group:hover .group-hover\:text-slate-200,
@@ -232,42 +336,42 @@
   color: #eef3fb;
 }
 
-[data-theme='midnight'] .text-slate-600,
-[data-theme='midnight'] .hover\:text-slate-600:hover {
+[data-theme='midnight'] [data-surface='app'] .text-slate-600,
+[data-theme='midnight'] [data-surface='app'] .hover\:text-slate-600:hover {
   color: #cbd5e1;
 }
 
-[data-theme='midnight'] .text-slate-500,
-[data-theme='midnight'] .hover\:text-slate-500:hover {
+[data-theme='midnight'] [data-surface='app'] .text-slate-500,
+[data-theme='midnight'] [data-surface='app'] .hover\:text-slate-500:hover {
   color: #9aabc2;
 }
 
-[data-theme='midnight'] .text-slate-400,
-[data-theme='midnight'] .hover\:text-slate-400:hover,
-[data-theme='midnight'] .text-slate-400\/60 {
+[data-theme='midnight'] [data-surface='app'] .text-slate-400,
+[data-theme='midnight'] [data-surface='app'] .hover\:text-slate-400:hover,
+[data-theme='midnight'] [data-surface='app'] .text-slate-400\/60 {
   color: #8294ae;
 }
 
-[data-theme='midnight'] .text-slate-300,
-[data-theme='midnight'] .hover\:text-slate-300:hover {
+[data-theme='midnight'] [data-surface='app'] .text-slate-300,
+[data-theme='midnight'] [data-surface='app'] .hover\:text-slate-300:hover {
+  color: #b6c4d6;
+}
+
+[data-theme='midnight'] [data-surface='app'] .text-slate-200,
+[data-theme='midnight'] [data-surface='app'] .hover\:text-slate-200:hover {
+  color: #9aabc2;
+}
+
+[data-theme='midnight'] [data-surface='app'] .text-slate-100,
+[data-theme='midnight'] [data-surface='app'] .text-slate-50 {
+  color: #8294ae;
+}
+
+[data-theme='midnight'] [data-surface='app'] .placeholder\:text-slate-400::placeholder {
   color: #71839c;
 }
 
-[data-theme='midnight'] .text-slate-200,
-[data-theme='midnight'] .hover\:text-slate-200:hover {
-  color: #64748b;
-}
-
-[data-theme='midnight'] .text-slate-100,
-[data-theme='midnight'] .text-slate-50 {
-  color: #586a82;
-}
-
-[data-theme='midnight'] .placeholder\:text-slate-400::placeholder {
-  color: #71839c;
-}
-
-[data-theme='midnight'] ::selection {
+[data-theme='midnight'] [data-surface='app'] ::selection {
   background: rgba(56, 189, 248, 0.32);
   color: #f8fafc;
 }
@@ -427,13 +531,13 @@
     background-size: 20px 20px;
   }
 
-  [data-theme='midnight'] .grid-bg {
+  [data-theme='midnight'] [data-surface='app'] .grid-bg {
     background-image:
       linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
       linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
   }
 
-  [data-theme='midnight'] .dot-grid {
+  [data-theme='midnight'] [data-surface='app'] .dot-grid {
     background-image: radial-gradient(rgba(148, 163, 184, 0.16) 1px, transparent 1px);
   }
 

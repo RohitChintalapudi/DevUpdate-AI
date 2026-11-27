@@ -74,7 +74,7 @@ export default function ScanProgress({ status, progress = {}, manifestCount = 0,
   const elapsed = Number.isFinite(started) ? Math.max(0, Math.floor((now - started) / 1000)) : 0
 
   return (
-    <section className="relative mt-6 overflow-hidden rounded-3xl border border-sky-200/70 bg-gradient-to-br from-white via-sky-50/60 to-indigo-50/70 p-6 shadow-sm sm:p-8">
+    <section className="relative mt-6 overflow-hidden rounded-3xl border border-sky-200/70 bg-gradient-to-br from-card via-sky-50/60 to-indigo-50/70 p-6 shadow-sm sm:p-8">
       <div className="pointer-events-none absolute -top-24 right-0 h-60 w-60 rounded-full bg-sky-300/25 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-28 left-10 h-60 w-60 rounded-full bg-indigo-300/20 blur-3xl" />
 
@@ -123,7 +123,7 @@ export default function ScanProgress({ status, progress = {}, manifestCount = 0,
               transition={{ duration: 0.6, ease: 'easeOut' }}
             >
               <motion.span
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent"
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent"
                 animate={{ x: ['-100%', '100%'] }}
                 transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
               />

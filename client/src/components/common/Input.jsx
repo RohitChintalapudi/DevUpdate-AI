@@ -8,7 +8,7 @@ export default function Input({
   rightElement,
   className = '',
   id,
-  theme = 'light',
+  theme = 'dark',
   ...props
 }) {
   const generatedId = useId()

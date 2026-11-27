@@ -7,7 +7,7 @@ const tones = {
   success: { icon: 'text-emerald-600', bg: 'bg-emerald-50', ring: 'border-emerald-200/90', glow: 'from-emerald-400/20' },
   danger: { icon: 'text-rose-600', bg: 'bg-rose-50', ring: 'border-rose-200/90', glow: 'from-rose-400/20' },
   warning: { icon: 'text-amber-600', bg: 'bg-amber-50', ring: 'border-amber-200/90', glow: 'from-amber-400/20' },
-  purple: { icon: 'text-purple-600', bg: 'bg-purple-50', ring: 'border-purple-200/90', glow: 'from-purple-400/20' },
+  purple: { icon: 'text-violet-600', bg: 'bg-violet-50', ring: 'border-violet-200/90', glow: 'from-violet-400/20' },
   neutral: { icon: 'text-slate-700', bg: 'bg-slate-100', ring: 'border-slate-200/90', glow: 'from-slate-400/20' },
 }
 
