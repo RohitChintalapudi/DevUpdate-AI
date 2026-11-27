@@ -22,17 +22,19 @@ import Input from '../../components/common/Input'
 import PageHeader from '../../components/common/PageHeader'
 import Toast from '../../components/common/Toast'
 import SettingRow from '../../components/settings/SettingRow'
+import SettingSwitch from '../../components/settings/SettingSwitch'
 import SettingsNav from '../../components/settings/SettingsNav'
 import SettingsSection from '../../components/settings/SettingsSection'
 import { isSettingsTab } from '../../constants/settingsTabs'
 import { useAuth } from '../../context/AuthContext'
 import { getErrorMessage } from '../../services/api'
+import { ACCENTS, readAppearance, saveAppearance } from '../../utils/appearanceSettings'
 import { formatDate } from '../../utils/updateHelpers'
 
-const themes = [
-  { id: 'daylight', label: 'Daylight', description: 'The current DevUpdate AI look', icon: LuSun, active: true },
-  { id: 'midnight', label: 'Midnight', description: 'Planned for a future phase', icon: LuMoon, active: false },
-  { id: 'system', label: 'System', description: 'Planned for a future phase', icon: LuMonitor, active: false },
+const themeOptions = [
+  { id: 'daylight', label: 'Daylight', description: 'Clean light surfaces with high-contrast text.', icon: LuSun, active: true },
+  { id: 'midnight', label: 'Midnight', description: 'Planned for a future release.', icon: LuMoon, active: false },
+  { id: 'system', label: 'System', description: 'Planned for a future release.', icon: LuMonitor, active: false },
 ]
 
 export default function Settings() {
@@ -45,6 +47,7 @@ export default function Settings() {
   const [toast, setToast] = useState(null)
   const [copied, setCopied] = useState(false)
   const [notifications, setNotifications] = useState({ updates: true, security: true, weekly: false })
+  const [appearance, setAppearance] = useState(() => readAppearance())
 
   useEffect(() => {
     if (!toast) return undefined
@@ -62,6 +65,10 @@ export default function Settings() {
     setTab(id)
     setToast(null)
     setSearchParams(id === 'profile' ? {} : { tab: id }, { replace: true })
+  }
+
+  const updateAppearance = (patch) => {
+    setAppearance((current) => saveAppearance({ ...current, ...patch }))
   }
 
   const handleSave = async (event) => {
@@ -204,26 +211,82 @@ export default function Settings() {
               <SettingsSection
                 eyebrow="Display"
                 title="Appearance"
-                description="Choose how DevUpdate AI looks on this device."
+                description="Preferences are saved on this device and applied instantly across the workspace."
+                actions={<Badge tone="cyan">{ACCENTS.find((accent) => accent.id === appearance.accent)?.label} accent</Badge>}
               >
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {themes.map((theme) => (
-                    <button
-                      key={theme.id}
-                      type="button"
-                      disabled={!theme.active}
-                      className={`relative rounded-xl border p-4 text-left transition ${
-                        theme.active
-                          ? 'border-sky-300 bg-sky-50/60'
-                          : 'border-slate-200 bg-slate-50/60 opacity-60'
-                      }`}
-                    >
-                      <theme.icon className={`h-5 w-5 ${theme.active ? 'text-sky-600' : 'text-slate-400'}`} />
-                      <p className="mt-3 text-[13px] font-semibold text-slate-900">{theme.label}</p>
-                      <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{theme.description}</p>
-                      {theme.active ? <LuCheck className="absolute top-3 right-3 h-4 w-4 text-sky-600" /> : null}
-                    </button>
-                  ))}
+                <div className="space-y-6">
+                  <div>
+                    <p className="label-caps mb-3">Theme</p>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      {themeOptions.map((theme) => (
+                        <button
+                          key={theme.id}
+                          type="button"
+                          disabled={!theme.active}
+                          className={`relative rounded-xl border p-4 text-left transition ${
+                            theme.active
+                              ? 'border-sky-300 bg-sky-50/60'
+                              : 'cursor-not-allowed border-slate-200 bg-slate-50/60 opacity-60'
+                          }`}
+                        >
+                          <theme.icon className={`h-5 w-5 ${theme.active ? 'text-sky-600' : 'text-slate-400'}`} />
+                          <p className="mt-3 text-[13px] font-semibold text-slate-900">{theme.label}</p>
+                          <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{theme.description}</p>
+                          {theme.active ? <LuCheck className="absolute top-3 right-3 h-4 w-4 text-sky-600" /> : null}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-slate-100 pt-6">
+                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="label-caps">Accent color</p>
+                        <p className="mt-1 text-[11px] text-slate-500">Recolors buttons, links, badges and focus states.</p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {ACCENTS.map((accent) => {
+                        const selected = appearance.accent === accent.id
+                        return (
+                          <button
+                            key={accent.id}
+                            type="button"
+                            onClick={() => updateAppearance({ accent: accent.id })}
+                            aria-pressed={selected}
+                            className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-semibold transition ${
+                              selected
+                                ? 'border-slate-900 bg-slate-900 text-white'
+                                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                            }`}
+                          >
+                            <span className="h-3 w-3 rounded-full ring-2 ring-white" style={{ backgroundColor: accent.swatch }} />
+                            {accent.label}
+                            {selected ? <LuCheck className="h-3 w-3" aria-hidden="true" /> : null}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-slate-100 pt-6">
+                    <p className="label-caps mb-3">Motion</p>
+                    <SettingSwitch
+                      label="Reduce motion"
+                      description="Minimise animations and transitions, including page changes and hover effects."
+                      checked={appearance.reduceMotion}
+                      onChange={(value) => updateAppearance({ reduceMotion: value })}
+                    />
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                    <p className="label-caps mb-3">Preview</p>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button size="sm" leftIcon={LuCheck}>Primary action</Button>
+                      <Button size="sm" variant="secondary">Secondary</Button>
+                      <Badge tone="cyan" dot>Live status</Badge>
+                    </div>
+                  </div>
                 </div>
               </SettingsSection>
             ) : null}

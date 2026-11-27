@@ -22,6 +22,47 @@
   --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
 }
 
+/* Accent selections in Settings remap the sky utility palette so buttons,
+   badges, focus rings and links all change together. */
+[data-accent='violet'] {
+  --color-sky-50: #f5f3ff;
+  --color-sky-100: #ede9fe;
+  --color-sky-500: #8b5cf6;
+  --color-sky-600: #7c3aed;
+  --color-sky-700: #6d28d9;
+  --color-brandlight: #7c3aed;
+  --color-accent: #7c3aed;
+}
+
+[data-accent='emerald'] {
+  --color-sky-50: #ecfdf5;
+  --color-sky-100: #d1fae5;
+  --color-sky-500: #10b981;
+  --color-sky-600: #059669;
+  --color-sky-700: #047857;
+  --color-brandlight: #059669;
+  --color-accent: #059669;
+}
+
+[data-accent='rose'] {
+  --color-sky-50: #fff1f2;
+  --color-sky-100: #ffe4e6;
+  --color-sky-500: #f43f5e;
+  --color-sky-600: #e11d48;
+  --color-sky-700: #be123c;
+  --color-brandlight: #e11d48;
+  --color-accent: #e11d48;
+}
+
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
 @layer base {
   * {
     box-sizing: border-box;
