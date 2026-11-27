@@ -1,24 +1,37 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { LuBell, LuCheck, LuCircleAlert, LuCircleCheck, LuLockKeyhole, LuMail, LuMonitor, LuMoon, LuPalette, LuSave, LuShield, LuSun, LuUserRound } from 'react-icons/lu'
+import {
+  LuCalendarDays,
+  LuCheck,
+  LuCopy,
+  LuFingerprint,
+  LuKeyRound,
+  LuLockKeyhole,
+  LuMail,
+  LuMonitor,
+  LuMoon,
+  LuSave,
+  LuShield,
+  LuSun,
+  LuUserRound,
+} from 'react-icons/lu'
 import { useSearchParams } from 'react-router-dom'
+import Badge from '../../components/common/Badge'
 import Button from '../../components/common/Button'
-import Card from '../../components/common/Card'
 import Input from '../../components/common/Input'
 import PageHeader from '../../components/common/PageHeader'
+import Toast from '../../components/common/Toast'
+import SettingRow from '../../components/settings/SettingRow'
+import SettingsNav from '../../components/settings/SettingsNav'
+import SettingsSection from '../../components/settings/SettingsSection'
+import { isSettingsTab } from '../../constants/settingsTabs'
 import { useAuth } from '../../context/AuthContext'
-
-const tabs = [
-  { id: 'profile', label: 'Profile', icon: LuUserRound },
-  { id: 'account', label: 'Account', icon: LuShield },
-  { id: 'appearance', label: 'Appearance', icon: LuPalette },
-  { id: 'notifications', label: 'Notifications', icon: LuBell },
-  { id: 'security', label: 'Security', icon: LuLockKeyhole },
-]
+import { getErrorMessage } from '../../services/api'
+import { formatDate } from '../../utils/updateHelpers'
 
 const themes = [
-  { id: 'dark', label: 'Midnight', description: 'Dark theme — the current DevUpdate AI look', icon: LuMoon, active: true },
-  { id: 'light', label: 'Daylight', description: 'Planned for a future phase', icon: LuSun, active: false },
+  { id: 'daylight', label: 'Daylight', description: 'The current DevUpdate AI look', icon: LuSun, active: true },
+  { id: 'midnight', label: 'Midnight', description: 'Planned for a future phase', icon: LuMoon, active: false },
   { id: 'system', label: 'System', description: 'Planned for a future phase', icon: LuMonitor, active: false },
 ]
 
@@ -26,69 +39,75 @@ export default function Settings() {
   const { user, updateProfile } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const requested = searchParams.get('tab')
-  const [tab, setTab] = useState(tabs.some((item) => item.id === requested) ? requested : 'profile')
+  const [tab, setTab] = useState(isSettingsTab(requested) ? requested : 'profile')
   const [name, setName] = useState(user?.name || '')
-  const email = user?.email || ''
   const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState('')
-  const [error, setError] = useState('')
-  const [notifications, setNotifications] = useState({
-    updates: true,
-    security: true,
-    weekly: false,
-  })
+  const [toast, setToast] = useState(null)
+  const [copied, setCopied] = useState(false)
+  const [notifications, setNotifications] = useState({ updates: true, security: true, weekly: false })
+
+  useEffect(() => {
+    if (!toast) return undefined
+    const timer = setTimeout(() => setToast(null), 6000)
+    return () => clearTimeout(timer)
+  }, [toast])
+
+  useEffect(() => {
+    if (!copied) return undefined
+    const timer = setTimeout(() => setCopied(false), 2000)
+    return () => clearTimeout(timer)
+  }, [copied])
 
   const selectTab = (id) => {
     setTab(id)
-    setMessage('')
-    setError('')
+    setToast(null)
     setSearchParams(id === 'profile' ? {} : { tab: id }, { replace: true })
   }
 
   const handleSave = async (event) => {
     event.preventDefault()
-    setMessage('')
-    setError('')
     if (!name.trim()) {
-      setError('Name cannot be empty.')
+      setToast({ type: 'error', title: 'Name is required', message: 'Enter a display name before saving.' })
       return
     }
     setSaving(true)
     try {
       await updateProfile({ name: name.trim() })
-      setMessage('Profile updated successfully.')
-    } catch (err) {
-      setError(err?.response?.data?.message || 'Could not save your profile.')
+      setToast({ type: 'success', title: 'Profile updated', message: 'Your display name has been saved.' })
+    } catch (error) {
+      setToast({ type: 'error', title: 'Could not save profile', message: getErrorMessage(error) })
     } finally {
       setSaving(false)
     }
   }
 
+  const copyAccountId = async () => {
+    if (!user?._id) return
+    try {
+      await navigator.clipboard.writeText(String(user._id))
+      setCopied(true)
+    } catch {
+      setToast({ type: 'error', title: 'Could not copy ID', message: 'Clipboard access is unavailable in this browser.' })
+    }
+  }
+
+  const initials = (user?.name || 'DU')
+    .split(' ')
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase()
+
   return (
     <div>
       <PageHeader
-        eyebrow="Management"
+        eyebrow="Workspace"
         title="Settings"
-        description="Manage your profile and preferences for this workspace."
+        description="Manage your identity, display preferences, notification delivery and account security."
       />
 
-      <div className="grid gap-5 lg:grid-cols-[220px_1fr]">
-        <div className="flex gap-2 overflow-x-auto scrollbar-slim pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
-          {tabs.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => selectTab(item.id)}
-              className={`flex shrink-0 items-center gap-2.5 rounded-lg px-3.5 py-2.5 text-left text-[13px] font-medium transition ${
-                tab === item.id
-                  ? 'bg-brand/12 text-brandlight'
-                  : 'text-subtle hover:bg-white/5 hover:text-ink'
-              }`}
-            >
-              <item.icon className="h-4 w-4" /> {item.label}
-            </button>
-          ))}
-        </div>
+      <div className="grid gap-5 lg:grid-cols-[240px_minmax(0,1fr)]">
+        <SettingsNav active={tab} onSelect={selectTab} />
 
         <AnimatePresence mode="wait">
           <motion.div
@@ -97,57 +116,97 @@ export default function Settings() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.2 }}
+            className="min-w-0 space-y-5"
           >
             {tab === 'profile' ? (
-              <Card>
-                <h2 className="text-base font-semibold text-ink">Profile information</h2>
-                <p className="mt-1 text-[12px] text-subtle">Update the details shown across your workspace.</p>
-                <form onSubmit={handleSave} className="mt-6 max-w-lg space-y-5">
-                  {message ? (
-                    <div role="status" className="flex items-center gap-2 rounded-xl border border-success/25 bg-success/[0.07] px-3.5 py-3 text-[13px] text-success">
-                      <LuCircleCheck className="h-4 w-4" /> {message}
-                    </div>
-                  ) : null}
-                  {error ? (
-                    <div role="alert" className="flex items-center gap-2 rounded-xl border border-danger/25 bg-danger/[0.07] px-3.5 py-3 text-[13px] text-danger">
-                      <LuCircleAlert className="h-4 w-4" /> {error}
-                    </div>
-                  ) : null}
-                  <Input label="Full name" icon={LuUserRound} value={name} onChange={(event) => setName(event.target.value)} />
-                  <div>
-                    <Input label="Email address" icon={LuMail} value={email} disabled hint="Email changes are not available in Phase 1." />
+              <SettingsSection
+                eyebrow="Identity"
+                title="Profile information"
+                description="This is how you appear across dashboards, reports and saved analyses."
+                actions={<Badge tone="success" dot>Active account</Badge>}
+              >
+                <div className="mb-6 flex flex-wrap items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                  <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-950 text-lg font-bold text-white shadow-sm">
+                    {initials}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[15px] font-semibold text-slate-950">{user?.name || 'Developer'}</p>
+                    <p className="truncate text-xs text-slate-500">{user?.email || 'No email on file'}</p>
                   </div>
-                  <Button type="submit" loading={saving} leftIcon={LuSave}>Save changes</Button>
+                  <Badge tone="neutral">Member</Badge>
+                </div>
+
+                <form onSubmit={handleSave} className="max-w-xl space-y-5">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Input
+                      label="Full name"
+                      icon={LuUserRound}
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      maxLength={80}
+                    />
+                    <Input
+                      label="Email address"
+                      icon={LuMail}
+                      value={user?.email || ''}
+                      disabled
+                      hint="Email is managed by your account and cannot be changed here."
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+                    <Button type="submit" loading={saving} leftIcon={LuSave}>Save changes</Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setName(user?.name || '')}
+                      disabled={name === (user?.name || '')}
+                    >
+                      Reset
+                    </Button>
+                  </div>
                 </form>
-              </Card>
+              </SettingsSection>
             ) : null}
 
             {tab === 'account' ? (
-              <Card>
-                <h2 className="text-base font-semibold text-ink">Account details</h2>
-                <p className="mt-1 text-[12px] text-subtle">Your authentication and workspace information.</p>
-                <div className="mt-6 divide-y divide-line">
-                  {[
-                    ['Name', user?.name || '—'],
-                    ['Email', user?.email || '—'],
-                    ['Account ID', user?._id || '—'],
-                    ['Authentication', 'JWT + HTTP-only cookie'],
-                    ['Member since', user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—'],
-                  ].map(([label, value]) => (
-                    <div key={label} className="flex flex-col gap-1 py-3.5 sm:flex-row sm:items-center sm:justify-between">
-                      <span className="text-[12px] text-muted">{label}</span>
-                      <span className="truncate text-[13px] font-medium text-ink">{value}</span>
-                    </div>
-                  ))}
+              <SettingsSection
+                eyebrow="Overview"
+                title="Account details"
+                description="Authentication and workspace facts stored on the server."
+              >
+                <div className="divide-y divide-slate-100">
+                  <SettingRow icon={LuUserRound} title="Name" description="Display name on this workspace">
+                    <span className="text-[13px] font-semibold text-slate-900">{user?.name || '—'}</span>
+                  </SettingRow>
+                  <SettingRow icon={LuMail} title="Email" description="Used for sign in and account recovery">
+                    <span className="text-[13px] font-semibold text-slate-900">{user?.email || '—'}</span>
+                  </SettingRow>
+                  <SettingRow icon={LuFingerprint} title="Account ID" description="Unique identifier for your workspace">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      leftIcon={copied ? LuCheck : LuCopy}
+                      onClick={copyAccountId}
+                    >
+                      {copied ? 'Copied' : 'Copy ID'}
+                    </Button>
+                  </SettingRow>
+                  <SettingRow icon={LuCalendarDays} title="Member since" description="When this account was created">
+                    <span className="text-[13px] font-semibold text-slate-900">{formatDate(user?.createdAt)}</span>
+                  </SettingRow>
+                  <SettingRow icon={LuLockKeyhole} title="Authentication" description="How sessions are issued and stored">
+                    <Badge tone="violet">JWT + HTTP-only cookie</Badge>
+                  </SettingRow>
                 </div>
-              </Card>
+              </SettingsSection>
             ) : null}
 
             {tab === 'appearance' ? (
-              <Card>
-                <h2 className="text-base font-semibold text-ink">Appearance</h2>
-                <p className="mt-1 text-[12px] text-subtle">Choose how DevUpdate AI looks on this device.</p>
-                <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              <SettingsSection
+                eyebrow="Display"
+                title="Appearance"
+                description="Choose how DevUpdate AI looks on this device."
+              >
+                <div className="grid gap-3 sm:grid-cols-3">
                   {themes.map((theme) => (
                     <button
                       key={theme.id}
@@ -155,76 +214,77 @@ export default function Settings() {
                       disabled={!theme.active}
                       className={`relative rounded-xl border p-4 text-left transition ${
                         theme.active
-                          ? 'border-brand/40 bg-brand/[0.08]'
-                          : 'border-line bg-canvas/40 opacity-60'
+                          ? 'border-sky-300 bg-sky-50/60'
+                          : 'border-slate-200 bg-slate-50/60 opacity-60'
                       }`}
                     >
-                      <theme.icon className={`h-5 w-5 ${theme.active ? 'text-brandlight' : 'text-muted'}`} />
-                      <p className="mt-3 text-[13px] font-semibold text-ink">{theme.label}</p>
-                      <p className="mt-1 text-[11px] leading-relaxed text-muted">{theme.description}</p>
-                      {theme.active ? <LuCheck className="absolute top-3 right-3 h-4 w-4 text-brandlight" /> : null}
+                      <theme.icon className={`h-5 w-5 ${theme.active ? 'text-sky-600' : 'text-slate-400'}`} />
+                      <p className="mt-3 text-[13px] font-semibold text-slate-900">{theme.label}</p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{theme.description}</p>
+                      {theme.active ? <LuCheck className="absolute top-3 right-3 h-4 w-4 text-sky-600" /> : null}
                     </button>
                   ))}
                 </div>
-              </Card>
+              </SettingsSection>
             ) : null}
 
             {tab === 'notifications' ? (
-              <Card>
-                <h2 className="text-base font-semibold text-ink">Notifications</h2>
-                <p className="mt-1 text-[12px] text-subtle">These toggles are a local UI preview in Phase 1.</p>
-                <div className="mt-6 divide-y divide-line">
+              <SettingsSection
+                eyebrow="Delivery"
+                title="Notifications"
+                description="Choose which events matter to you. Full preferences live in the notification inbox."
+              >
+                <div className="space-y-2">
                   {[
-                    { key: 'updates', label: 'New dependency updates', detail: 'Get notified when a tracked package has a new version.' },
+                    { key: 'updates', label: 'New dependency updates', detail: 'Alerts when a tracked package has a new version.' },
                     { key: 'security', label: 'Security advisories', detail: 'Prioritise advisories affecting your projects.' },
                     { key: 'weekly', label: 'Weekly health digest', detail: 'A summary of dependency health across workspaces.' },
                   ].map((item) => (
-                    <div key={item.key} className="flex items-center justify-between gap-4 py-4 first:pt-0">
-                      <div>
-                        <p className="text-[13px] font-medium text-ink">{item.label}</p>
-                        <p className="mt-1 text-[11px] text-muted">{item.detail}</p>
-                      </div>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={notifications[item.key]}
-                        aria-label={item.label}
-                        onClick={() => setNotifications({ ...notifications, [item.key]: !notifications[item.key] })}
-                        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${notifications[item.key] ? 'bg-brand' : 'bg-white/10'}`}
-                      >
+                    <button
+                      key={item.key}
+                      type="button"
+                      role="switch"
+                      aria-checked={notifications[item.key]}
+                      onClick={() => setNotifications({ ...notifications, [item.key]: !notifications[item.key] })}
+                      className="flex w-full items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-300"
+                    >
+                      <span>
+                        <span className="block text-[13px] font-semibold text-slate-900">{item.label}</span>
+                        <span className="mt-0.5 block text-[11px] text-slate-500">{item.detail}</span>
+                      </span>
+                      <span className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${notifications[item.key] ? 'bg-sky-600' : 'bg-slate-200'}`}>
                         <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${notifications[item.key] ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
-                      </button>
-                    </div>
+                      </span>
+                    </button>
                   ))}
                 </div>
-              </Card>
+              </SettingsSection>
             ) : null}
 
             {tab === 'security' ? (
-              <Card>
-                <h2 className="text-base font-semibold text-ink">Security</h2>
-                <p className="mt-1 text-[12px] text-subtle">Session and account protection details.</p>
-                <div className="mt-6 space-y-3">
-                  <div className="flex items-center gap-3 rounded-xl border border-line bg-canvas/40 p-4">
-                    <LuShield className="h-5 w-5 text-success" />
-                    <div>
-                      <p className="text-[13px] font-medium text-ink">HTTP-only session cookie</p>
-                      <p className="mt-0.5 text-[11px] text-muted">Active · protected from client-side JavaScript access</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 rounded-xl border border-line bg-canvas/40 p-4">
-                    <LuLockKeyhole className="h-5 w-5 text-brandlight" />
-                    <div>
-                      <p className="text-[13px] font-medium text-ink">Password change</p>
-                      <p className="mt-0.5 text-[11px] text-muted">Password rotation will be available in a later phase.</p>
-                    </div>
-                  </div>
+              <SettingsSection
+                eyebrow="Protection"
+                title="Security"
+                description="Session and account protection details."
+              >
+                <div className="divide-y divide-slate-100">
+                  <SettingRow icon={LuShield} title="HTTP-only session cookie" description="Protected from client-side JavaScript access">
+                    <Badge tone="success" dot>Active</Badge>
+                  </SettingRow>
+                  <SettingRow icon={LuKeyRound} title="Password change" description="Password rotation will be available in a later phase.">
+                    <Badge tone="neutral">Unavailable</Badge>
+                  </SettingRow>
+                  <SettingRow icon={LuLockKeyhole} title="CSRF protection" description="State-changing requests require a verified header.">
+                    <Badge tone="success" dot>Enabled</Badge>
+                  </SettingRow>
                 </div>
-              </Card>
+              </SettingsSection>
             ) : null}
           </motion.div>
         </AnimatePresence>
       </div>
+
+      <Toast toast={toast} onDismiss={() => setToast(null)} />
     </div>
   )
 }
