@@ -3,33 +3,33 @@ import { LuActivity, LuShieldAlert } from 'react-icons/lu'
 import { updateStatusLabel } from '../../utils/updateHelpers'
 
 const severityColors = {
-  CRITICAL: '#fb7185',
-  HIGH: '#fb7185',
-  MEDIUM: '#fbbf24',
-  LOW: '#22d3ee',
-  UNKNOWN: '#64748b',
+  CRITICAL: 'var(--color-rose-500)',
+  HIGH: 'var(--color-rose-500)',
+  MEDIUM: 'var(--color-amber-500)',
+  LOW: 'var(--color-cyan-400)',
+  UNKNOWN: 'var(--color-muted)',
 }
 
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-xl">
-      <p className="font-semibold text-slate-900">{label || payload[0]?.name}</p>
-      <p className="mt-1 text-slate-600">{payload[0].value} dependencies</p>
+    <div className="rounded-xl border border-line bg-elevated px-3 py-2 text-xs shadow-xl">
+      <p className="font-semibold text-ink">{label || payload[0]?.name}</p>
+      <p className="mt-1 text-subtle">{payload[0].value} dependencies</p>
     </div>
   )
 }
 
 function Panel({ icon: Icon, title, description, children }) {
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-xs sm:p-6">
+    <div className="surface-card rounded-2xl p-5 sm:p-6">
       <div className="flex items-start gap-3">
-        <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-sky-100 bg-sky-50 text-sky-600">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-sky-200/80 bg-sky-50 text-sky-600">
           <Icon className="h-4 w-4" aria-hidden="true" />
         </span>
         <div>
-          <h2 className="text-sm font-semibold text-slate-950">{title}</h2>
-          <p className="mt-1 text-xs text-slate-500">{description}</p>
+          <h2 className="text-sm font-semibold text-ink">{title}</h2>
+          <p className="mt-1 text-xs text-muted">{description}</p>
         </div>
       </div>
       <div className="mt-5">{children}</div>
@@ -58,11 +58,11 @@ export default function UpdateCharts({ distribution = [], severityDistribution =
           <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={updateData} margin={{ top: 8, right: 8, bottom: 8, left: -16 }}>
-                <CartesianGrid strokeDasharray="3 6" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="name" tick={{ fill: '#64748B', fontSize: 10 }} tickLine={false} axisLine={false} />
-                <YAxis allowDecimals={false} tick={{ fill: '#64748B', fontSize: 11 }} tickLine={false} axisLine={false} />
-                <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-                <Bar dataKey="count" fill="#8B5CF6" radius={[6, 6, 0, 0]} maxBarSize={42} />
+                <CartesianGrid strokeDasharray="3 6" stroke="var(--color-line)" vertical={false} />
+                <XAxis dataKey="name" tick={{ fill: 'var(--color-muted)', fontSize: 10 }} tickLine={false} axisLine={false} />
+                <YAxis allowDecimals={false} tick={{ fill: 'var(--color-muted)', fontSize: 11 }} tickLine={false} axisLine={false} />
+                <Tooltip content={<ChartTooltip />} cursor={{ fill: 'rgba(125, 211, 252, 0.06)' }} />
+                <Bar dataKey="count" fill="var(--color-violet-500)" radius={[6, 6, 0, 0]} maxBarSize={42} />
               </BarChart>
             </ResponsiveContainer>
           </div>

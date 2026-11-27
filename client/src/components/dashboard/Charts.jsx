@@ -14,13 +14,13 @@ import {
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
   return (
-    <div className="rounded-xl border border-slate-200 bg-white px-3.5 py-3 shadow-xl">
-      {label ? <p className="mb-1.5 text-[11px] font-semibold text-slate-900">{label}</p> : null}
+    <div className="rounded-xl border border-line bg-elevated px-3.5 py-3 shadow-xl">
+      {label ? <p className="mb-1.5 text-[11px] font-semibold text-ink">{label}</p> : null}
       {payload.map((entry) => (
-        <div key={entry.dataKey || entry.name} className="flex items-center gap-2 text-[11px] text-slate-600">
+        <div key={entry.dataKey || entry.name} className="flex items-center gap-2 text-[11px] text-subtle">
           <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: entry.color || entry.payload?.fill }} />
           <span className="capitalize">{entry.name}</span>
-          <span className="ml-auto font-semibold text-slate-900">{entry.value}</span>
+          <span className="ml-auto font-semibold text-ink">{entry.value}</span>
         </div>
       ))}
     </div>
@@ -46,41 +46,41 @@ export function UpdateActivityChart({ data = [] }) {
         <AreaChart data={chartData} margin={{ top: 8, right: 6, left: -22, bottom: 0 }}>
           <defs>
             <linearGradient id="updatesFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#0284C7" stopOpacity={0.35} />
-              <stop offset="100%" stopColor="#0284C7" stopOpacity={0} />
+              <stop offset="0%" stopColor="var(--color-sky-500)" stopOpacity={0.35} />
+              <stop offset="100%" stopColor="var(--color-sky-500)" stopOpacity={0} />
             </linearGradient>
             <linearGradient id="reviewedFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#10B981" stopOpacity={0.25} />
-              <stop offset="100%" stopColor="#10B981" stopOpacity={0} />
+              <stop offset="0%" stopColor="var(--color-emerald-400)" stopOpacity={0.25} />
+              <stop offset="100%" stopColor="var(--color-emerald-400)" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 6" stroke="rgba(15,23,42,0.06)" vertical={false} />
+          <CartesianGrid strokeDasharray="3 6" stroke="var(--color-line)" vertical={false} />
           <XAxis
             dataKey="day"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: '#64748B', fontSize: 11 }}
+            tick={{ fill: 'var(--color-muted)', fontSize: 11 }}
             dy={8}
           />
-          <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748B', fontSize: 11 }} allowDecimals={false} />
-          <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'rgba(2,132,199,0.3)', strokeWidth: 1 }} />
+          <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--color-muted)', fontSize: 11 }} allowDecimals={false} />
+          <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'var(--color-brandlight)', strokeWidth: 1 }} />
           <Area
             type="monotone"
             dataKey="updates"
             name="Updates detected"
-            stroke="#0284C7"
+            stroke="var(--color-sky-500)"
             strokeWidth={2.5}
             fill="url(#updatesFill)"
-            activeDot={{ r: 5, stroke: '#FFFFFF', strokeWidth: 2 }}
+            activeDot={{ r: 5, stroke: 'var(--color-card)', strokeWidth: 2 }}
           />
           <Area
             type="monotone"
             dataKey="checked"
             name="Checked"
-            stroke="#10B981"
+            stroke="var(--color-emerald-400)"
             strokeWidth={2}
             fill="url(#reviewedFill)"
-            activeDot={{ r: 4, stroke: '#FFFFFF', strokeWidth: 2 }}
+            activeDot={{ r: 4, stroke: 'var(--color-card)', strokeWidth: 2 }}
           />
         </AreaChart>
       </ResponsiveContainer>
@@ -88,7 +88,16 @@ export function UpdateActivityChart({ data = [] }) {
   )
 }
 
-const languageColors = ['#6366F1', '#0284C7', '#10B981', '#F59E0B', '#EF4444', '#A855F7', '#14B8A6', '#64748B']
+const languageColors = [
+  'var(--color-indigo-500)',
+  'var(--color-sky-500)',
+  'var(--color-emerald-400)',
+  'var(--color-amber-500)',
+  'var(--color-rose-500)',
+  'var(--color-purple-500)',
+  'var(--color-teal-400)',
+  'var(--color-muted)',
+]
 
 export function LanguageChart({ items = [] }) {
   const data = items.filter((item) => item.count > 0)
@@ -97,11 +106,11 @@ export function LanguageChart({ items = [] }) {
   if (!data.length) {
     return (
       <div className="flex h-[260px] flex-col items-center justify-center text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full border border-dashed border-slate-300 bg-slate-50">
-          <span className="text-xl font-bold text-slate-400">0</span>
+        <div className="flex h-16 w-16 items-center justify-center rounded-full border border-dashed border-line bg-elevated">
+          <span className="text-xl font-bold text-muted">0</span>
         </div>
-        <p className="mt-4 text-xs font-semibold text-slate-700">No repository languages yet</p>
-        <p className="mt-1 max-w-xs text-[11px] leading-relaxed text-slate-500">
+        <p className="mt-4 text-xs font-semibold text-ink">No repository languages yet</p>
+        <p className="mt-1 max-w-xs text-[11px] leading-relaxed text-muted">
           Connect GitHub repositories to see their primary language mix.
         </p>
       </div>
@@ -132,19 +141,19 @@ export function LanguageChart({ items = [] }) {
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none -mt-[132px] flex h-[84px] flex-col items-center justify-center">
-          <span className="text-2xl font-bold tracking-tight text-slate-950">{total}</span>
-          <span className="text-[10px] text-slate-400">repositories</span>
+          <span className="text-2xl font-bold tracking-tight text-ink">{total}</span>
+          <span className="text-[10px] text-muted">repositories</span>
         </div>
       </div>
       <div className="mt-3 grid w-full grid-cols-2 gap-x-4 gap-y-2">
         {data.map((item, index) => (
-          <div key={item.name} className="flex items-center gap-2 text-[11px] text-slate-600">
+          <div key={item.name} className="flex items-center gap-2 text-[11px] text-subtle">
             <span
               className="h-2 w-2 shrink-0 rounded-full"
               style={{ backgroundColor: languageColors[index % languageColors.length] }}
             />
             <span className="truncate">{item.name}</span>
-            <span className="ml-auto font-semibold text-slate-900">{item.count}</span>
+            <span className="ml-auto font-semibold text-ink">{item.count}</span>
           </div>
         ))}
       </div>
@@ -153,31 +162,31 @@ export function LanguageChart({ items = [] }) {
 }
 
 const statusPalette = {
-  UP_TO_DATE: { name: 'Up to date', color: '#10B981' },
-  MINOR_UPDATE: { name: 'Minor update', color: '#0284C7' },
-  MAJOR_UPDATE: { name: 'Major update', color: '#6366F1' },
-  PATCH_UPDATE: { name: 'Patch update', color: '#38BDF8' },
-  VULNERABLE: { name: 'Security advisory', color: '#EF4444' },
+  UP_TO_DATE: { name: 'Up to date', color: 'var(--color-emerald-400)' },
+  MINOR_UPDATE: { name: 'Minor update', color: 'var(--color-sky-500)' },
+  MAJOR_UPDATE: { name: 'Major update', color: 'var(--color-indigo-500)' },
+  PATCH_UPDATE: { name: 'Patch update', color: 'var(--color-sky-400)' },
+  VULNERABLE: { name: 'Security advisory', color: 'var(--color-rose-500)' },
 }
 
 export function HealthChart({ distribution = [], total = 0 }) {
   const chartItems = distribution.map((item) => ({
     name: statusPalette[item.status]?.name || item.status,
     value: item.count || 0,
-    color: statusPalette[item.status]?.color || '#94A3B8',
+    color: statusPalette[item.status]?.color || 'var(--color-muted)',
   })).filter((entry) => entry.value > 0)
 
   if (!chartItems.length && total === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-6 text-center">
-        <div className="relative flex h-[150px] w-[150px] items-center justify-center rounded-full border-4 border-dashed border-slate-200">
+        <div className="relative flex h-[150px] w-[150px] items-center justify-center rounded-full border-4 border-dashed border-line">
           <div className="text-center">
-            <span className="text-2xl font-bold tracking-tight text-slate-950">0</span>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase">tracked</p>
+            <span className="text-2xl font-bold tracking-tight text-ink">0</span>
+            <p className="text-[10px] font-semibold text-muted uppercase">tracked</p>
           </div>
         </div>
-        <p className="mt-4 text-xs font-semibold text-slate-700">No dependency health data</p>
-        <p className="mt-1 max-w-xs text-[11px] leading-relaxed text-slate-500">
+        <p className="mt-4 text-xs font-semibold text-ink">No dependency health data</p>
+        <p className="mt-1 max-w-xs text-[11px] leading-relaxed text-muted">
           Connect your GitHub repository and scan manifests to populate dependency distribution.
         </p>
       </div>
@@ -186,7 +195,7 @@ export function HealthChart({ distribution = [], total = 0 }) {
 
   const displayItems = chartItems.length
     ? chartItems
-    : [{ name: 'Tracked', value: total, color: '#0284C7' }]
+    : [{ name: 'Tracked', value: total, color: 'var(--color-sky-500)' }]
 
   return (
     <div className="flex flex-col items-center">
@@ -212,16 +221,16 @@ export function HealthChart({ distribution = [], total = 0 }) {
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none -mt-[132px] flex h-[84px] flex-col items-center justify-center">
-          <span className="text-2xl font-bold tracking-tight text-slate-950">{total}</span>
-          <span className="text-[10px] text-slate-400">tracked packages</span>
+          <span className="text-2xl font-bold tracking-tight text-ink">{total}</span>
+          <span className="text-[10px] text-muted">tracked packages</span>
         </div>
       </div>
       <div className="mt-3 grid w-full grid-cols-2 gap-x-4 gap-y-2">
         {displayItems.map((entry) => (
-          <div key={entry.name} className="flex items-center gap-2 text-[11px] text-slate-600">
+          <div key={entry.name} className="flex items-center gap-2 text-[11px] text-subtle">
             <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: entry.color }} />
             <span className="truncate">{entry.name}</span>
-            <span className="ml-auto font-semibold text-slate-900">{entry.value}</span>
+            <span className="ml-auto font-semibold text-ink">{entry.value}</span>
           </div>
         ))}
       </div>

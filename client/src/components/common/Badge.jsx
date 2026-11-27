@@ -4,8 +4,8 @@ const tones = {
   success: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
   warning: 'bg-amber-50 text-amber-800 border-amber-200/80',
   danger: 'bg-rose-50 text-rose-700 border-rose-200/80',
-  neutral: 'bg-slate-100 text-slate-700 border-slate-200',
-  outline: 'bg-white text-slate-700 border-slate-200 shadow-2xs',
+  neutral: 'bg-elevated text-subtle border-line',
+  outline: 'bg-elevated text-subtle border-line shadow-2xs',
 }
 
 export default function Badge({
